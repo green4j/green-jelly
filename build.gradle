@@ -1,0 +1,52 @@
+plugins {
+    id 'java'
+    id 'checkstyle'
+}
+
+defaultTasks 'clean', 'build'
+
+group = projectGroup
+version = projectVersion
+sourceCompatibility = projectSourceCompatibility
+targetCompatibility = projectSourceCompatibility
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    checkstyle 'com.puppycrawl.tools:checkstyle:8.12'
+    testCompile 'junit:junit:4.12'
+}
+
+checkstyle {
+    toolVersion = '8.12'
+}
+
+test {
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = 'full'
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': projectName,
+                   'Implementation-Version': projectVersion,
+                   'Implementation-Vendor' : 'Anatoly Gudkov'
+    }
+}
+
+javadoc {
+    title = "<h1>$projectName</h1>"
+    options.bottom = '<i>Copyright &#169; 2018 Anatoly Gudkov.</i>'
+    if (JavaVersion.current() == JavaVersion.VERSION_1_10) {
+        options.addBooleanOption 'html5', true
+    }
+}
+
+wrapper {
+    gradleVersion = '4.10.2'
+    distributionType = 'ALL'
+}
