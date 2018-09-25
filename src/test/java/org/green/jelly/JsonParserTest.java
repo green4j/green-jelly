@@ -1,3 +1,26 @@
+/**
+ * MIT License
+ *
+ * Copyright (c) 2018 Anatoly Gudkov
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 package org.green.jelly;
 
 import java.math.BigDecimal;
@@ -20,7 +43,7 @@ public class JsonParserTest {
     @Test
     public void stringTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser copyingParser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser copyingParser = new JsonParser(new CopyingStringBuilder(/*false*/)).setListener(events);
 
         StringValue event;
 
@@ -64,7 +87,7 @@ public class JsonParserTest {
         assertTrue(events.isEmpty());
 
         // raw string (the result is not unescaped) with copying string builder
-        final JsonParser copyingRawParser = JsonParser.newCopyingRawParser().setListener(events);
+        final JsonParser copyingRawParser = new JsonParser(new CopyingStringBuilder(true)).setListener(events);
         events.clear();
         copyingRawParser.parse("  \"" + part1).parse(part2 + "\"  ").eoj();
 
@@ -76,7 +99,7 @@ public class JsonParserTest {
         assertTrue(events.isEmpty());
 
         // raw string only with flyweight (zero copy) string builder
-        final JsonParser flyweightParser = JsonParser.newFlyweightParser().setListener(events);
+        final JsonParser flyweightParser = new JsonParser(new FlyweightStringBuilder()).setListener(events);
         events.clear();
         flyweightParser.parse("  \"" + part1 + part2 + "\"  ").eoj();
 
@@ -91,7 +114,7 @@ public class JsonParserTest {
     @Test
     public void numberTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser parser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         final String[] numbers = new String[]{
             Long.toString(Long.MIN_VALUE),
@@ -143,7 +166,7 @@ public class JsonParserTest {
     @Test
     public void trueTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser parser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         parser.parse("tru").parse("e").eoj();
 
@@ -157,7 +180,7 @@ public class JsonParserTest {
     @Test
     public void falseTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser parser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         parser.parse("false").eoj();
 
@@ -171,7 +194,7 @@ public class JsonParserTest {
     @Test
     public void nullTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser parser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         parser.parse("null").eoj();
 
@@ -185,7 +208,7 @@ public class JsonParserTest {
     @Test
     public void arrayTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser parser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         parser.parse("[[[1, 2], [2], [3], [], []], [\"a\", \"b\", \"c\"]").parse(", [\n]\t]").eoj();
 
@@ -224,7 +247,7 @@ public class JsonParserTest {
     @Test
     public void objectTest() {
         final JsonEvents events = new JsonEvents();
-        final JsonParser parser = JsonParser.newCopyingParser().setListener(events);
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         parser.parse("{").parse("  \n}").eoj();
 
