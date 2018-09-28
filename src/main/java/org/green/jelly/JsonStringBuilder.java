@@ -55,44 +55,38 @@ public interface JsonStringBuilder extends CharSequence {
 
     /**
      * Appends next char to the current string value.
-     *
-     * @param data - text of JSON message
-     * @param position - position of the current char in the buffer passed with data
-     * @param c - current char
+     * @param int - current char
      */
-    void append(CharSequence data, int position, char c);
+    void append(CharSequence data, int start, int len);
 
     /**
      * Appends '\' char to the current string value.
-     *
-     * @param data - text of JSON message
-     * @param position - position of the '\' symbol
      */
-    void appendEscape(CharSequence data, int position);
+    void appendEscape();
 
-    void appendEscapedQuotationMark(CharSequence data, int position);
+    void appendEscapedQuotationMark();
 
-    void appendEscapedReverseSolidus(CharSequence data, int position);
+    void appendEscapedReverseSolidus();
 
-    void appendEscapedSolidus(CharSequence data, int position);
+    void appendEscapedSolidus();
 
-    void appendEscapedBackspace(CharSequence data, int position);
+    void appendEscapedBackspace();
 
-    void appendEscapedFormfeed(CharSequence data, int position);
+    void appendEscapedFormfeed();
 
-    void appendEscapedNewLine(CharSequence data, int position);
+    void appendEscapedNewLine();
 
-    void appendEscapedCarriageReturn(CharSequence data, int position);
+    void appendEscapedCarriageReturn();
 
-    void appendEscapedHorisontalTab(CharSequence data, int position);
+    void appendEscapedHorisontalTab();
 
-    void appendEscapedUnicodeU(CharSequence data, int position);
+    void appendEscapedUnicodeU();
 
-    boolean appendEscapedUnicodeChar1(CharSequence data, int position, char c);
+    boolean appendEscapedUnicodeChar1(char c);
 
-    boolean appendEscapedUnicodeChar2(CharSequence data, int position, char c);
+    boolean appendEscapedUnicodeChar2(char c);
 
-    boolean appendEscapedUnicodeChar3(CharSequence data, int position, char c);
+    boolean appendEscapedUnicodeChar3(char c);
 
-    boolean appendEscapedUnicodeChar4(CharSequence data, int position, char c);
+    boolean appendEscapedUnicodeChar4(char c);
 }

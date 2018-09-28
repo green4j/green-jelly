@@ -54,34 +54,34 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void append(final CharSequence data, final int position, final char c) {
-        buffer.append(c);
+    public void append(final CharSequence data, final int start, final int len) {
+        buffer.append(data, start, start + len);
     }
 
     @Override
-    public void appendEscape(final CharSequence data, final int position) {
+    public void appendEscape() {
         if (rawString) {
             buffer.append('\\');
         }
     }
 
     @Override
-    public void appendEscapedQuotationMark(final CharSequence data, final int position) {
+    public void appendEscapedQuotationMark() {
         buffer.append('"');
     }
 
     @Override
-    public void appendEscapedReverseSolidus(final CharSequence data, final int position) {
+    public void appendEscapedReverseSolidus() {
         buffer.append('\\');
     }
 
     @Override
-    public void appendEscapedSolidus(final CharSequence data, final int position) {
+    public void appendEscapedSolidus() {
         buffer.append('/');
     }
 
     @Override
-    public void appendEscapedBackspace(final CharSequence data, final int position) {
+    public void appendEscapedBackspace() {
         if (rawString) {
             buffer.append('b');
         } else {
@@ -90,7 +90,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void appendEscapedFormfeed(final CharSequence data, final int position) {
+    public void appendEscapedFormfeed() {
         if (rawString) {
             buffer.append('f');
         } else {
@@ -99,7 +99,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void appendEscapedNewLine(final CharSequence data, final int position) {
+    public void appendEscapedNewLine() {
         if (rawString) {
             buffer.append('n');
         } else {
@@ -108,7 +108,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void appendEscapedCarriageReturn(final CharSequence data, final int position) {
+    public void appendEscapedCarriageReturn() {
         if (rawString) {
             buffer.append('r');
         } else {
@@ -117,7 +117,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void appendEscapedHorisontalTab(final CharSequence data, final int position) {
+    public void appendEscapedHorisontalTab() {
         if (rawString) {
             buffer.append('t');
         } else {
@@ -126,14 +126,14 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void appendEscapedUnicodeU(final CharSequence data, final int position) {
+    public void appendEscapedUnicodeU() {
         if (rawString) {
             buffer.append('u');
         }
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar1(final CharSequence data, final int position, final char c) {
+    public boolean appendEscapedUnicodeChar1(final char c) {
         if (rawString) {
             switch (c) {
                 case '0':
@@ -209,7 +209,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar2(final CharSequence data, final int position, final char c) {
+    public boolean appendEscapedUnicodeChar2(final char c) {
         if (rawString) {
             switch (c) {
                 case '0':
@@ -285,7 +285,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar3(final CharSequence data, final int position, final char c) {
+    public boolean appendEscapedUnicodeChar3(final char c) {
         if (rawString) {
             switch (c) {
                 case '0':
@@ -361,7 +361,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar4(final CharSequence data, final int position, final char c) {
+    public boolean appendEscapedUnicodeChar4(final char c) {
         if (rawString) {
             switch (c) {
                 case '0':

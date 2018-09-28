@@ -58,78 +58,80 @@ public final class FlyweightStringBuilder implements JsonStringBuilder {
     }
 
     @Override
-    public void append(final CharSequence data, final int position, final char c) {
-        appendChar(data);
+    public void append(final CharSequence data, final int start, final int len) {
+        assert buffer == data;
+
+        this.len += len;
     }
 
     @Override
-    public void appendEscape(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscape() {
+        len++;
     }
 
     @Override
-    public void appendEscapedQuotationMark(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedQuotationMark() {
+        len++;
     }
 
     @Override
-    public void appendEscapedReverseSolidus(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedReverseSolidus() {
+        len++;
     }
 
     @Override
-    public void appendEscapedSolidus(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedSolidus() {
+        len++;
     }
 
     @Override
-    public void appendEscapedBackspace(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedBackspace() {
+        len++;
     }
 
     @Override
-    public void appendEscapedFormfeed(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedFormfeed() {
+        len++;
     }
 
     @Override
-    public void appendEscapedNewLine(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedNewLine() {
+        len++;
     }
 
     @Override
-    public void appendEscapedCarriageReturn(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedCarriageReturn() {
+        len++;
     }
 
     @Override
-    public void appendEscapedHorisontalTab(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedHorisontalTab() {
+        len++;
     }
 
     @Override
-    public void appendEscapedUnicodeU(final CharSequence data, final int position) {
-        appendChar(data);
+    public void appendEscapedUnicodeU() {
+        len++;
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar1(final CharSequence data, final int position, final char c) {
-        return appendUnicodeChar(data, c);
+    public boolean appendEscapedUnicodeChar1(final char c) {
+        return appendUnicodeChar(c);
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar2(final CharSequence data, final int position, final char c) {
-        return appendUnicodeChar(data, c);
+    public boolean appendEscapedUnicodeChar2(final char c) {
+        return appendUnicodeChar(c);
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar3(final CharSequence data, final int position, final char c) {
-        return appendUnicodeChar(data, c);
+    public boolean appendEscapedUnicodeChar3(final char c) {
+        return appendUnicodeChar(c);
     }
 
     @Override
-    public boolean appendEscapedUnicodeChar4(final CharSequence data, final int position, final char c) {
-        return appendUnicodeChar(data, c);
+    public boolean appendEscapedUnicodeChar4(final char c) {
+        return appendUnicodeChar(c);
     }
 
     @Override
@@ -148,14 +150,7 @@ public final class FlyweightStringBuilder implements JsonStringBuilder {
         return new StringBuilder().append(buffer, start, start + len).toString();
     }
 
-    private void appendChar(final CharSequence data) {
-        if (buffer != data) {
-            throw new IllegalArgumentException("Buffer cannot be changed after start of a string");
-        }
-        len++;
-    }
-
-    private boolean appendUnicodeChar(final CharSequence data, final char c) {
+    private boolean appendUnicodeChar(final char c) {
         switch (c) {
             case '0':
             case '1':
@@ -179,7 +174,7 @@ public final class FlyweightStringBuilder implements JsonStringBuilder {
             case 'd':
             case 'e':
             case 'f':
-                appendChar(data);
+                len++;
                 return true;
             default:
                 break;
