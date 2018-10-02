@@ -1,14 +1,22 @@
-green-jelly
-============
+# green-jelly
+
 GC-free (green) JSON parser/writer library for Java which isn't an object mapper, but aims to be:
 
 * **minimal**: MIT licensed with no dependencies (i.e. just drop the code into your project)
 * **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens, just handle a callback you are interested in
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see below)
-* **lightweight**: the code never recurses or allocates more memory than it needs, the Flightweight patern can be used to wrap a buffer to prevent memory copying
+* **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a buffer to prevent memory copying
 
-Performance
------
+## Usage
+### JsonParser
+
+TBD...
+
+### JsonWriter
+
+TBD...
+
+## Performance
 
 A JMH test which sums all numbers in the document in the streaming style compared to Gson (v.2.8.5) and Jackson (v.2.9.7):
 ```
@@ -18,7 +26,7 @@ JsonParserPerformanceComparison.gsonJsonReaderSumTest       avgt   25  23718.733
 JsonParserPerformanceComparison.jacksonJsonParserSumTest    avgt   25  18777.392 ± 219.668  ns/op
 ```
 <details>
-<summary>Source code of the test</summary>
+<summary>Source code of the "sum" test</summary>
 <p>
 
 ```java
@@ -255,3 +263,8 @@ public class JsonParserPerformanceComparison {
 ```
 </p>
 </details>
+
+
+License
+-------
+The code is available under the terms of the [MIT License](http://opensource.org/licenses/MIT).
