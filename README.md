@@ -6,7 +6,7 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 * **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens, you just handle a callback you are interested in
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see below)
 * **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a buffer to prevent memory copying
-* **robust**: built according to [json.org](https://json.org/) schema with some extentions for number values (see below)
+* **robust**: built according to [json.org](https://json.org/) schema with some extensions for number values (see below)
 
 ## Usage
 
@@ -29,10 +29,10 @@ parser.parse("\"st").parse("ring\"").eoj();
 ```
 #### JsonStringBuilder
 
-While creating an instance of the `JsonParser`, an instance of the `JsonStringBuilder` can be passed to `JsonParser`'s consructor. The responsibility of the `JsonStringBuilder` is to store characters of a string value. There are two implementation of the interface included to the library:
+While creating an instance of the `JsonParser`, an instance of the `JsonStringBuilder` can be passed to `JsonParser`'s constructor. The responsibility of the `JsonStringBuilder` is to store characters of a string value. There are two implementation of the interface included to the library:
 
 * **CopyingStringBuilder**: copies the character of string values to internal buffer. Should be used when not the whole JSON document can be parsed at once (i.e. you use reusable/mutable buffer to receive the data via `receive` system call). Also, this builder supports *unescaping* on-the-fly.
-* **FlyweightStringBuilder**: stores the reference to a CharSequence passed to the `parse` method and knows the length of the string value. This builder prevents you from memory copying, but it requires any string value must be fitted into one instance of CharSequence. Also, *unescaping* isn't supported, since the lengh of the result string value, passed to the `onStringValue(CharSequence data)` callback, must be the same as the length of the original string.
+* **FlyweightStringBuilder**: stores the reference to a CharSequence passed to the `parse` method and knows the length of the string value. This builder prevents you from memory copying, but it requires any string value must be fitted into one instance of CharSequence. Also, *unescaping* isn't supported, since the length of the result string value, passed to the `onStringValue(CharSequence data)` callback, must be the same as the length of the original string.
 
 #### JsonParserListener
 
@@ -68,10 +68,10 @@ While parsing you can be notified about the following events with an instance of
 #### Numbers
 
 Supported format of number values are a bit more relaxed than specified on  [json.org](https://json.org/):
-* number can starts with `+` or `-`
+* number can start with `+` or `-`
 * leading zeros are allowed for both mantissa and exponent
 
-To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point ariphmetic. Numbers are presented with the following interface:
+To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point arithmetic. Numbers are presented with the following interface:
 ```java
 public interface JsonNumber {
 
@@ -80,7 +80,7 @@ public interface JsonNumber {
     int exp();
 }
 ```
-Feel free to use any type of ariphmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, `java.math.BigDecimal`, which allocates new memory. An example of `java.math.BigDecimal` using:
+Feel free to use any type of arithmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, `java.math.BigDecimal`, which allocates new memory. An example of `java.math.BigDecimal` using:
 
 ```java
 JsonNumber number = ...
