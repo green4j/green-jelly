@@ -28,7 +28,6 @@ package org.green.jelly;
  */
 public final class JsonParser {
 
-    //private static final int LEXEMA_INITIAL = 0;
     private static final int LEXEMA_TRUE_STARTED_T = 1;
     private static final int LEXEMA_TRUE_STARTED_TR = LEXEMA_TRUE_STARTED_T + 1;
     private static final int LEXEMA_TRUE_STARTED_TRU = LEXEMA_TRUE_STARTED_TR + 1;
@@ -265,6 +264,10 @@ public final class JsonParser {
                             }
                             break;
                         case 't':
+                            if (currentLexState > LEXEMA_NUMBER_READY) {
+                                error(ERROR_TRUE_EXPECTED_MESSAGE, currentLexPos);
+                                return this;
+                            }
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'true' value
                                 if (data.charAt(++pos) == 'r'
@@ -283,6 +286,10 @@ public final class JsonParser {
                             currentLexState = LEXEMA_TRUE_STARTED_T;
                             break;
                         case 'f':
+                            if (currentLexState > LEXEMA_NUMBER_READY) {
+                                error(ERROR_FALSE_EXPECTED_MESSAGE, currentLexPos);
+                                return this;
+                            }
                             currentLexPos = pos;
                             if (len - pos > 4) { // try to read the whole 'false' value
                                 if (data.charAt(++pos) == 'a'
@@ -302,6 +309,10 @@ public final class JsonParser {
                             currentLexState = LEXEMA_FALSE_STARTED_F;
                             break;
                         case 'n':
+                            if (currentLexState > LEXEMA_NUMBER_READY) {
+                                error(ERROR_NULL_EXPECTED_MESSAGE, currentLexPos);
+                                return this;
+                            }
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'null' value
                                 if (data.charAt(++pos) == 'u'
