@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'checkstyle'
+    id 'jacoco'
 }
 
 defaultTasks 'clean', 'build'
@@ -34,17 +35,26 @@ jar {
     manifest {
         attributes 'Implementation-Title': projectName,
                    'Implementation-Version': projectVersion,
-                   'Implementation-Vendor' : 'Anatoly Gudkov'
+                   'Implementation-Vendor' : projectAuthor
     }
 }
 
 javadoc {
     title = "<h1>$projectName</h1>"
-    options.bottom = '<i>Copyright &#169; 2018 Anatoly Gudkov.</i>'
+    options.bottom = "<i>Copyright &#169; 2018 $projectAuthor.</i>"
     if (JavaVersion.current() == JavaVersion.VERSION_1_10) {
         options.addBooleanOption 'html5', true
     }
 }
+
+jacocoTestReport {
+    reports {
+        xml.enabled true
+        html.enabled true
+    }
+}
+
+check.dependsOn jacocoTestReport
 
 wrapper {
     gradleVersion = '4.10.2'

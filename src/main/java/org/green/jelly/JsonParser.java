@@ -24,7 +24,7 @@
 package org.green.jelly;
 
 /**
- * Parses JSON character stream.
+ * Parses JSON character sequence.
  */
 public final class JsonParser {
 
@@ -265,7 +265,7 @@ public final class JsonParser {
                             break;
                         case 't':
                             if (currentLexState > LEXEMA_NUMBER_READY) {
-                                error(ERROR_TRUE_EXPECTED_MESSAGE, currentLexPos);
+                                error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
                                 return this;
                             }
                             currentLexPos = pos;
@@ -287,7 +287,7 @@ public final class JsonParser {
                             break;
                         case 'f':
                             if (currentLexState > LEXEMA_NUMBER_READY) {
-                                error(ERROR_FALSE_EXPECTED_MESSAGE, currentLexPos);
+                                error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
                                 return this;
                             }
                             currentLexPos = pos;
@@ -310,7 +310,7 @@ public final class JsonParser {
                             break;
                         case 'n':
                             if (currentLexState > LEXEMA_NUMBER_READY) {
-                                error(ERROR_NULL_EXPECTED_MESSAGE, currentLexPos);
+                                error(ERROR_NULL_EXPECTED_MESSAGE, pos);
                                 return this;
                             }
                             currentLexPos = pos;
