@@ -6,7 +6,11 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 * **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens, you just handle a callback you are interested in
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see below)
 * **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a buffer to prevent memory copying
-* **robust**: built according to [json.org](https://json.org/) schema with some extensions for number values (see below)
+* **robust**: built according to [json.org](https://json.org/) schema with some extensions for the number values (see below)
+
+## How to build
+
+Just run `gradlew` to build the library. But prefer to just drop the code into your own project and modify according to your needs; don't forget about unit tests.
 
 ## Usage
 
@@ -29,7 +33,7 @@ parser.parse("\"st").parse("ring\"").eoj();
 ```
 #### JsonStringBuilder
 
-While creating an instance of the `JsonParser`, an instance of the `JsonStringBuilder` can be passed to `JsonParser`'s constructor. The responsibility of the `JsonStringBuilder` is to store characters of a string value. There are two implementation of the interface included to the library:
+While creating an instance of the `JsonParser`, an instance of the `JsonStringBuilder` can be passed to `JsonParser`'s constructor. The responsibility of the `JsonStringBuilder` is to store characters of a string value. There are two implementations of the interface included to the library:
 
 * **CopyingStringBuilder**: copies the character of string values to internal buffer. Should be used when not the whole JSON document can be parsed at once (i.e. you use reusable/mutable buffer to receive the data via `receive` system call). Also, this builder supports *unescaping* on-the-fly.
 * **FlyweightStringBuilder**: stores the reference to a CharSequence passed to the `parse` method and knows the length of the string value. This builder prevents you from memory copying, but it requires any string value must be fitted into one instance of CharSequence. Also, *unescaping* isn't supported, since the length of the result string value, passed to the `onStringValue(CharSequence data)` callback, must be the same as the length of the original string.
@@ -68,8 +72,8 @@ While parsing you can be notified about the following events with an instance of
 #### Numbers
 
 Supported format of number values are a bit more relaxed than specified on  [json.org](https://json.org/):
-* number can start with `+` or `-`
-* leading zeros are allowed for both mantissa and exponent
+* the numbers can start with both `+` or `-`
+* the leading zeros are allowed for both mantissa and exponent
 
 To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point arithmetic. Numbers are presented with the following interface:
 ```java
@@ -80,7 +84,7 @@ public interface JsonNumber {
     int exp();
 }
 ```
-Feel free to use any type of arithmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, `java.math.BigDecimal`, which allocates new memory. An example of `java.math.BigDecimal` using:
+Feel free to use any type of arithmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, out-of-the-box `java.math.BigDecimal`, which a bit slow and allocates new memory, etc. An example of `java.math.BigDecimal` using:
 
 ```java
 JsonNumber number = ...
@@ -118,7 +122,7 @@ An example:
 
 ### Encodings
 
-The library works over character-based abstractions, so, it doesn't implement any encoding functionality. As in case of Gson, for example, the user should care about correct bytes-to/from-chars encoding transformations if any required.
+The library works over character based abstractions, so, it doesn't implement any encoding functionality. As in case of Gson, for example, the user have to care about correct bytes-to/from-chars transformation if any required.
 
 ## Performance
 
@@ -129,7 +133,7 @@ JsonParserPerformanceComparison.greenJellyFlyweightSumTest  avgt   25  17363.530
 JsonParserPerformanceComparison.gsonJsonReaderSumTest       avgt   25  23718.733 ±  54.265  ns/op
 JsonParserPerformanceComparison.jacksonJsonParserSumTest    avgt   25  18777.392 ± 219.668  ns/op
 ```
-<details><summary markdown="span"><code>Source code of the test...</code></summary>
+<details><summary markdown="span"><code>Source code of the test</code></summary>
 <p>
 
 ```java
