@@ -178,7 +178,7 @@ import java.util.concurrent.TimeUnit;
 import org.green.jelly.FlyweightStringBuilder;
 import org.green.jelly.JsonNumber;
 import org.green.jelly.JsonParser;
-import org.green.jelly.JsonParserListener;
+import org.green.jelly.JsonParserListenerAdaptor;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -237,7 +237,7 @@ public class JsonParserPerformanceComparison {
         + "]";
 
     @State(Scope.Thread)
-    public static class JellyFlyweightSum implements JsonParserListener {
+    public static class JellyFlyweightSum extends JsonParserListenerAdaptor {
 
         public JsonParser parser;
         public long value;
@@ -255,56 +255,9 @@ public class JsonParserPerformanceComparison {
         }
 
         @Override
-        public void onJsonStarted() {
-        }
-
-        @Override
-        public void onError(final String error, final int position) {
-        }
-
-        @Override
-        public void onJsonEnded() {
-        }
-
-        @Override
-        public void onObjectStarted() {
-        }
-
-        @Override
-        public void onObjectMember(final CharSequence name) {
-        }
-
-        @Override
-        public void onObjectEnded() {
-        }
-
-        @Override
-        public void onArrayStarted() {
-        }
-
-        @Override
-        public void onArrayEnded() {
-        }
-
-        @Override
-        public void onStringValue(final CharSequence data) {
-        }
-
-        @Override
-        public void onNumberValue(final JsonNumber number) {
+        public boolean onNumberValue(final JsonNumber number) {
             value += number.mantissa();
-        }
-
-        @Override
-        public void onTrueValue() {
-        }
-
-        @Override
-        public void onFalseValue() {
-        }
-
-        @Override
-        public void onNullValue() {
+            return true;
         }
     }
 
