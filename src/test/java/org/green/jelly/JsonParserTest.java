@@ -35,6 +35,8 @@ import org.green.jelly.JsonEvents.StringValue;
 import org.green.jelly.JsonEvents.TrueValue;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
@@ -49,23 +51,26 @@ public class JsonParserTest {
 
         // empty string
         events.clear();
-        copyingParser.parse("\"").parse("\"").eoj();
+        copyingParser.parse("\"");
+        copyingParser.parse("\"");
+        copyingParser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(StringValue.class);
-        Assert.assertNotNull(event);
+        assertNotNull(event);
         assertEquals("", event.string());
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
         // whitespaces out of the literal
         events.clear();
-        copyingParser.parse(" \t\r\n\"te st\"  \t\r\n\"").eoj();
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        copyingParser.parse(" \t\r\n\"te st\"  \t\r\n\"");
+        copyingParser.eoj();
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(StringValue.class);
-        Assert.assertNotNull(event);
+        assertNotNull(event);
         assertEquals("te st", event.string());
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
         // unescaping test
@@ -77,37 +82,42 @@ public class JsonParserTest {
 
         // unescaping with copying string builder
         events.clear();
-        copyingParser.parse("\"" + part1).parse(part2 + "\"").eoj();
+        copyingParser.parse("\"" + part1);
+        copyingParser.parse(part2 + "\"");
+        copyingParser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(StringValue.class);
-        Assert.assertNotNull(event);
+        assertNotNull(event);
         assertEquals(part1Decoded + part2Decoded, event.string());
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
         // raw string (the result is not unescaped) with copying string builder
         final JsonParser copyingRawParser = new JsonParser(new CopyingStringBuilder(true)).setListener(events);
         events.clear();
-        copyingRawParser.parse("  \"" + part1).parse(part2 + "\"  ").eoj();
+        copyingRawParser.parse("  \"" + part1);
+        copyingRawParser.parse(part2 + "\"  ");
+        copyingRawParser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(StringValue.class);
-        Assert.assertNotNull(event);
+        assertNotNull(event);
         assertEquals(part1 + part2, event.string());
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
         // raw string only with flyweight (zero copy) string builder
         final JsonParser flyweightParser = new JsonParser(new FlyweightStringBuilder()).setListener(events);
         events.clear();
-        flyweightParser.parse("  \"" + part1 + part2 + "\"  ").eoj();
+        flyweightParser.parse("  \"" + part1 + part2 + "\"  ");
+        flyweightParser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(StringValue.class);
-        Assert.assertNotNull(event);
+        assertNotNull(event);
         assertEquals(part1 + part2, event.string());
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
     }
 
@@ -151,23 +161,24 @@ public class JsonParserTest {
 
         for (final String number : numbers) {
             events.clear();
-            parser.parse(number).eoj();
+            parser.parse(number);
+            parser.eoj();
 
-            Assert.assertNotNull(events.pop().as(JsonEnd.class));
+            assertNotNull(events.pop().as(JsonEnd.class));
             final NumberValue event = events.pop().as(NumberValue.class);
-            Assert.assertNotNull(event);
+            assertNotNull(event);
             final BigDecimal expected = new BigDecimal(number);
             assertEquals(expected, event.number());
-            Assert.assertNotNull(events.pop().as(JsonStart.class));
+            assertNotNull(events.pop().as(JsonStart.class));
             assertTrue(events.isEmpty());
         }
 
         final String[][] splittedNumbers = new String[][]{
-            new String[] {"1", "2"},
-            new String[] {"+", "123"},
-            new String[] {"-", "123.45"},
-            new String[] {"-", "123", ".", "45"},
-            new String[] {"+", "1", "2", "3", ".", "4", "5", "e", "+", "2"}
+            new String[]{"1", "2"},
+            new String[]{"+", "123"},
+            new String[]{"-", "123.45"},
+            new String[]{"-", "123", ".", "45"},
+            new String[]{"+", "1", "2", "3", ".", "4", "5", "e", "+", "2"}
         };
 
         final StringBuilder fullNumber = new StringBuilder();
@@ -180,12 +191,12 @@ public class JsonParserTest {
             }
             parser.eoj();
 
-            Assert.assertNotNull(events.pop().as(JsonEnd.class));
+            assertNotNull(events.pop().as(JsonEnd.class));
             final NumberValue event = events.pop().as(NumberValue.class);
-            Assert.assertNotNull(event);
+            assertNotNull(event);
             final BigDecimal expected = new BigDecimal(fullNumber.toString());
             assertEquals(expected, event.number());
-            Assert.assertNotNull(events.pop().as(JsonStart.class));
+            assertNotNull(events.pop().as(JsonStart.class));
             assertTrue(events.isEmpty());
         }
     }
@@ -195,38 +206,46 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
-        parser.parse("true").eoj();
+        parser.parse("true");
+        parser.eoj();
 
         Assert.assertNotNull(events.pop().as(JsonEnd.class));
         TrueValue event = events.pop().as(TrueValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("tr").parse("ue").eoj();
+        parser.parse("tr");
+        parser.parse("ue");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(TrueValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("t").parse("r").parse("u").parse("e").eoj();
+        parser.parse("t");
+        parser.parse("r");
+        parser.parse("u");
+        parser.parse("e");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(TrueValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("truetrue").eoj();
+        parser.parse("truetrue");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         final JsonEvents.Error error = events.pop().as(JsonEvents.Error.class);
-        Assert.assertNotNull(error);
+        assertNotNull(error);
         event = events.pop().as(TrueValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(parser.hasError());
         assertEquals(4, parser.getErrorPosition());
     }
@@ -236,38 +255,47 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
-        parser.parse("false").eoj();
+        parser.parse("false");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         FalseValue event = events.pop().as(FalseValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("fal").parse("se").eoj();
+        parser.parse("fal");
+        parser.parse("se");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(FalseValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("f").parse("a").parse("l").parse("s").parse("e").eoj();
+        parser.parse("f");
+        parser.parse("a");
+        parser.parse("l");
+        parser.parse("s");
+        parser.parse("e");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(FalseValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("falsefalse").eoj();
+        parser.parse("falsefalse");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         final JsonEvents.Error error = events.pop().as(JsonEvents.Error.class);
-        Assert.assertNotNull(error);
+        assertNotNull(error);
         event = events.pop().as(FalseValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(parser.hasError());
         assertEquals(5, parser.getErrorPosition());
     }
@@ -277,38 +305,46 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
-        parser.parse("null").eoj();
+        parser.parse("null");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         NullValue event = events.pop().as(NullValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("nu").parse("ll").eoj();
+        parser.parse("nu");
+        parser.parse("ll");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(NullValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("n").parse("u").parse("l").parse("l").eoj();
+        parser.parse("n");
+        parser.parse("u");
+        parser.parse("l");
+        parser.parse("l");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         event = events.pop().as(NullValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        parser.parse("nullnull").eoj();
+        parser.parse("nullnull");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         final JsonEvents.Error error = events.pop().as(JsonEvents.Error.class);
-        Assert.assertNotNull(error);
+        assertNotNull(error);
         event = events.pop().as(NullValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(parser.hasError());
         assertEquals(4, parser.getErrorPosition());
     }
@@ -318,10 +354,11 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
-        parser.parse("[[[1, 2], [2], [3], [{},{},{}], [")
-            .parse("]")
-            .parse("], [\"a\", \"b\", \"c\"]")
-            .parse(", [\n]\t]").eoj();
+        parser.parse("[[[1, 2], [2], [3], [{},{},{}], [");
+        parser.parse("]");
+        parser.parse("], [\"a\", \"b\", \"c\"]");
+        parser.parse(", [\n]\t]");
+        parser.eoj();
 
         final JsonEvents expectedEvents = new JsonEvents();
         expectedEvents.onJsonStarted();
@@ -366,31 +403,35 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
-        parser.parse("{").parse("  \n}").eoj();
+        parser.parse("{");
+        parser.parse("  \n}");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
-        Assert.assertNotNull(events.pop().as(ObjectEnd.class));
-        Assert.assertNotNull(events.pop().as(ObjectStart.class));
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(ObjectEnd.class));
+        assertNotNull(events.pop().as(ObjectStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
         events.clear();
-        parser.parse("{")
-                .parse("}}") // an error is here in the position 1 (starting from 0)
-                .eoj();
+        parser.parse("{");
+        parser.parse("}}"); // an error is here in the position 1 (starting from 0)
+        parser.eoj();
 
         assertTrue(parser.hasError());
         assertEquals(1, parser.getErrorPosition());
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
-        Assert.assertNotNull(events.pop().as(JsonEvents.Error.class));
-        Assert.assertNotNull(events.pop().as(ObjectEnd.class));
-        Assert.assertNotNull(events.pop().as(ObjectStart.class));
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEvents.Error.class));
+        assertNotNull(events.pop().as(ObjectEnd.class));
+        assertNotNull(events.pop().as(ObjectStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
         events.clear();
-        parser.parse("{ \"prop1\":").parse(" -12.350, \n\n\"prop2\": [\"aaa\", \"bbb\" ]")
-                .parse(", \"prop3\": { \"prop3_1\": [1, 2, 3,\n4], \"prop3_2\": null}}").eoj();
+        parser.parse("{ \"prop1\":");
+        parser.parse(" -12.350, \n\n\"prop2\": [\"aaa\", \"bbb\" ]");
+        parser.parse(", \"prop3\": { \"prop3_1\": [1, 2, 3,\n4], \"prop3_2\": null}}");
+        parser.eoj();
 
         final JsonEvents expectedEvents = new JsonEvents();
         expectedEvents.onJsonStarted();
@@ -425,13 +466,73 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser().setListener(events);
 
-        parser.parse("fal").reset().parse("null").eoj();
+        parser.parse("fal");
+        parser.reset();
+        parser.parse("null");
+        parser.eoj();
 
-        Assert.assertNotNull(events.pop().as(JsonEnd.class));
+        assertNotNull(events.pop().as(JsonEnd.class));
         final NullValue event = events.pop().as(NullValue.class);
-        Assert.assertNotNull(event);
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
-        Assert.assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(event);
+        assertNotNull(events.pop().as(JsonStart.class));
+        assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
+    }
+
+    @Test
+    public void nextTest() {
+        final MutableLong result = new MutableLong(0);
+
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(
+            new JsonParserListenerAdaptor() {
+                @Override
+                public boolean onArrayEnded() {
+                    return false;
+                }
+
+                @Override
+                public boolean onNumberValue(final JsonNumber number) {
+                    result.value = result.value + number.mantissa();
+                    return false;
+                }
+
+                @Override
+                public boolean onArrayStarted() {
+                    return false;
+                }
+            }
+        );
+
+        JsonParser.Next next;
+        int nextCount = 0;
+
+        next = parser.parse("["); // if no more data, the next is NULL always
+        assertNull(next);
+
+        next = parser.parse("10,20,30,40,5");
+        while (next != null) {
+            nextCount++;
+            next = next.next();
+        }
+        assertEquals(4, nextCount);
+
+        next = parser.parse("0,60,70,80,90,100]");
+        while (next != null) {
+            nextCount++;
+            next = next.next();
+        }
+        assertEquals(10, nextCount);
+
+        parser.eoj();
+
+        assertEquals(550, result.value);
+    }
+
+    class MutableLong {
+        long value;
+
+        MutableLong(final long value) {
+            this.value = value;
+        }
     }
 }

@@ -1,20 +1,20 @@
-# green-jelly
+#Green Jelly
 
 GC-free (green) JSON parser/generator library for Java which isn't an object mapper, but aims to be:
 
 * **minimal**: MIT licensed with no dependencies (i.e. just drop the code into your project)
-* **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens, you just handle a callback you are interested in
+* **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens with verbose `if` or `switch`, just handle a callback you are interested in
+* **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a receive/send buffer to prevent memory copying
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see below)
-* **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a buffer to prevent memory copying
-* **robust**: built according to [json.org](https://json.org/) schema with some extensions for the number values (see below)
+* **robust**: built according to [json.org](https://json.org/) schema with some extensions for the number values (see [Numbers](/#numbers))
 
-## How to build
+##How to build
 
-Just run `gradlew` to build the library. But prefer to just drop the code into your own project and modify according to your needs; don't forget about unit tests.
+Just run `gradlew` to build the library. But prefer to just drop the code into your own project and modify according to your own needs; don't forget about unit tests.
 
-## Usage
+##Usage
 
-### JsonParser
+###JsonParser
 
 Generic pattern of the usage if the following:
 * create instance of the JsonParser
@@ -31,45 +31,47 @@ parser.setListener(new JsonParserListener() {
 parser.parse("[1,2,3]").eoj();
 parser.parse("\"st").parse("ring\"").eoj();
 ```
-#### JsonStringBuilder
+####JsonStringBuilder
 
 While creating an instance of the `JsonParser`, an instance of the `JsonStringBuilder` can be passed to `JsonParser`'s constructor. The responsibility of the `JsonStringBuilder` is to store characters of a string value. There are two implementations of the interface included to the library:
 
 * **CopyingStringBuilder**: copies the character of string values to internal buffer. Should be used when not the whole JSON document can be parsed at once (i.e. you use reusable/mutable buffer to receive the data via `receive` system call). Also, this builder supports *unescaping* on-the-fly.
 * **FlyweightStringBuilder**: stores the reference to a CharSequence passed to the `parse` method and knows the length of the string value. This builder prevents you from memory copying, but it requires any string value must be fitted into one instance of CharSequence. Also, *unescaping* isn't supported, since the length of the result string value, passed to the `onStringValue(CharSequence data)` callback, must be the same as the length of the original string.
 
-#### JsonParserListener
+####JsonParserListener
 
 While parsing you can be notified about the following events with an instance of the JsonParserListener:
 
 ```
-    void onJsonStarted();
+void onJsonStarted();
 
-    void onError(String error, int position);
+void onError(String error, int position);
 
-    void onJsonEnded();
+void onJsonEnded();
 
-    void onObjectStarted();
+boolean onObjectStarted();
 
-    void onObjectMember(CharSequence name);
+boolean onObjectMember(CharSequence name);
 
-    void onObjectEnded();
+boolean onObjectEnded();
 
-    void onArrayStarted();
+boolean onArrayStarted();
 
-    void onArrayEnded();
+boolean onArrayEnded();
 
-    void onStringValue(CharSequence data);
+boolean onStringValue(CharSequence data);
 
-    void onNumberValue(JsonNumber number);
+boolean onNumberValue(JsonNumber number);
 
-    void onTrueValue();
+boolean onTrueValue();
 
-    void onFalseValue();
+boolean onFalseValue();
 
-    void onNullValue();
+boolean onNullValue();
 ```
-#### Numbers
+If any of method returns `false`, the parsing is stopped and can be continued then (see [Parsing with steps](/#parsing-with-steps))
+
+####Numbers
 
 Supported format of number values are a bit more relaxed than specified on  [json.org](https://json.org/):
 * the numbers can start with both `+` or `-`
@@ -91,51 +93,79 @@ JsonNumber number = ...
 BigDecimal decimal = BigDecimal.valueOf(number.mantissa(), -number.exp());
 ```
 
-#### Error handling
+####Error handling
 
 If the parser detects an error while parsing, you receive a notification with the `onError(String error, int position)` callback. Also, after the control is given back from the `parse` method, you can check the error with the following methods:
 ```
-    boolean hasError()
+boolean hasError()
 
-    String getError()
+String getError()
     
-    int getErrorPosition()
+int getErrorPosition()
+```
+####Parsing with steps
+Sometimes you may need to split the process of parsing into some steps. In this case you return `false` from any of `JsonEventListener`'s callback. The parsing stops with an instance of the `Next` returned back. You call `Next.next()` until it returns `null`. For example, the following code prints each number on new line:
+
+```java
+final AtomicLong value = new AtomicLong(0); // a mutable value
+
+final JsonParser parser = new JsonParser().setListener(
+   new JsonParserListenerAdaptor() {
+       @Override
+       public boolean onNumberValue(final JsonNumber number) {
+            value.set(number.mantissa());
+            return false; // stop the parsing after each number
+        }
+    }
+);
+
+JsonParser.Next nextStep = parser.parse("[0,10,20,30,40,5");
+while (nextStep != null) {
+    System.out.println(value.get());
+    nextStep = nextStep.next();
+}
+
+nextStep = parser.parse("0,60,70,80,90,100]");
+while (nextStep != null) {
+    System.out.println(value.get());
+    nextStep = nextStep.next();
+}
+parser.eoj();
 ```
 
-### JsonGenerator
+###JsonGenerator
 
 An example:
 ```java
-        final AppendableWriter<StringBuilder> writer = new AppendableWriter<>(new StringBuilder());
-        final JsonGenerator generator = new JsonGenerator();
-        generator.setOutput(writer);
-        
-        generator.startArray();
-        generator.stringValue("\test1", true); // the value requires to be escaped
-        generator.stringValue("test2");
-        generator.stringValue("test3");
-        generator.endArray();
-        generator.eoj();
+final AppendableWriter<StringBuilder> writer = new AppendableWriter<>(new StringBuilder());
+final JsonGenerator generator = new JsonGenerator();
+generator.setOutput(writer);
+       
+generator.startArray();
+generator.stringValue("\test1", true); // the value requires to be escaped
+generator.stringValue("test2");
+generator.stringValue("test3");
+generator.endArray();
+generator.eoj();
 
-        System.out.println(writer.output().toString());
+System.out.println(writer.output().toString());
 ```
 
-### Encodings
+###Encodings
 
 The library works over character based abstractions, so, it doesn't implement any encoding functionality. As in case of Gson, for example, the user have to care about correct bytes-to/from-chars transformation if any required.
 
-## Performance
+##Performance
 
 A JMH test, which sums all numbers in the document in streaming style, compared to Gson (v.2.8.5) and Jackson (v.2.9.7):
 ```
 Benchmark                                                   Mode  Cnt      Score     Error  Units
-JsonParserPerformanceComparison.greenJellyFlyweightSumTest  avgt   25  17363.530 ± 351.989  ns/op
-JsonParserPerformanceComparison.gsonJsonReaderSumTest       avgt   25  23718.733 ±  54.265  ns/op
-JsonParserPerformanceComparison.jacksonJsonParserSumTest    avgt   25  18777.392 ± 219.668  ns/op
+JsonParserPerformanceComparison.greenJellyFlyweightSumTest  avgt   25  17747.965 ± 257.699  ns/op
+JsonParserPerformanceComparison.gsonJsonReaderSumTest       avgt   25  23442.288 ± 109.931  ns/op
+JsonParserPerformanceComparison.jacksonJsonParserSumTest    avgt   25  18336.310 ± 220.573  ns/op
 ```
 <details><summary markdown="span"><code>Source code of the test</code></summary>
 <p>
-
 ```java
 import com.fasterxml.jackson.core.JsonFactory;
 import com.google.gson.stream.JsonReader;
@@ -371,8 +401,5 @@ public class JsonParserPerformanceComparison {
 </p>
 </details>
 
-
-
-License
--------
+##License
 The code is available under the terms of the [MIT License](http://opensource.org/licenses/MIT).

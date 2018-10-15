@@ -42,38 +42,45 @@ public class JsonEvents implements JsonParserListener {
     }
 
     @Override
-    public void onObjectStarted() {
+    public boolean onObjectStarted() {
         stack.add(new ObjectStart());
+        return true;
     }
 
     @Override
-    public void onObjectMember(final CharSequence name) {
+    public boolean onObjectMember(final CharSequence name) {
         stack.add(new ObjectMember(name));
+        return true;
     }
 
     @Override
-    public void onObjectEnded() {
+    public boolean onObjectEnded() {
         stack.add(new ObjectEnd());
+        return true;
     }
 
     @Override
-    public void onArrayStarted() {
+    public boolean onArrayStarted() {
         stack.add(new ArrayStart());
+        return true;
     }
 
     @Override
-    public void onArrayEnded() {
+    public boolean onArrayEnded() {
         stack.add(new ArrayEnd());
+        return true;
     }
 
     @Override
-    public void onStringValue(final CharSequence data) {
+    public boolean onStringValue(final CharSequence data) {
         stack.add(new StringValue(data));
+        return true;
     }
 
     @Override
-    public void onNumberValue(final JsonNumber number) {
+    public boolean onNumberValue(final JsonNumber number) {
         stack.add(new NumberValue(number));
+        return true;
     }
 
     public void onNumberValue(final long mantissa, final int exp) {
@@ -81,18 +88,21 @@ public class JsonEvents implements JsonParserListener {
     }
 
     @Override
-    public void onTrueValue() {
+    public boolean onTrueValue() {
         stack.add(new TrueValue());
+        return true;
     }
 
     @Override
-    public void onFalseValue() {
+    public boolean onFalseValue() {
         stack.add(new FalseValue());
+        return true;
     }
 
     @Override
-    public void onNullValue() {
+    public boolean onNullValue() {
         stack.add(new NullValue());
+        return true;
     }
 
     @Override

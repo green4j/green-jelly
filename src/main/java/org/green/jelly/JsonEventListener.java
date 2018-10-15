@@ -25,24 +25,24 @@ package org.green.jelly;
 
 public interface JsonEventListener {
 
-    void onObjectStarted();
+    boolean onObjectStarted();
 
-    void onObjectMember(CharSequence name);
+    boolean onObjectMember(CharSequence name);
 
-    void onObjectEnded();
+    boolean onObjectEnded();
 
-    void onArrayStarted();
+    boolean onArrayStarted();
 
-    void onArrayEnded();
+    boolean onArrayEnded();
 
-    void onStringValue(CharSequence data);
+    boolean onStringValue(CharSequence data);
 
-    void onNumberValue(JsonNumber number);
+    boolean onNumberValue(JsonNumber number);
 
-    void onTrueValue();
+    boolean onTrueValue();
 
-    void onFalseValue();
+    boolean onFalseValue();
 
-    void onNullValue();
+    boolean onNullValue();
 
 }

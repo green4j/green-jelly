@@ -38,43 +38,53 @@ public class JsonParserListenerAdaptor implements JsonParserListener {
     }
 
     @Override
-    public void onObjectStarted() {
+    public boolean onObjectStarted() {
+        return true;
     }
 
     @Override
-    public void onObjectMember(final CharSequence name) {
+    public boolean onObjectMember(final CharSequence name) {
+        return true;
     }
 
     @Override
-    public void onObjectEnded() {
+    public boolean onObjectEnded() {
+        return true;
     }
 
     @Override
-    public void onArrayStarted() {
+    public boolean onArrayStarted() {
+        return true;
     }
 
     @Override
-    public void onArrayEnded() {
+    public boolean onArrayEnded() {
+        return true;
     }
 
     @Override
-    public void onStringValue(final CharSequence data) {
+    public boolean onStringValue(final CharSequence data) {
+        return true;
     }
 
     @Override
-    public void onNumberValue(final JsonNumber number) {
+    public boolean onNumberValue(final JsonNumber number) {
+        return true;
     }
 
     @Override
-    public void onTrueValue() {
+    public boolean onTrueValue() {
+        return true;
     }
 
     @Override
-    public void onFalseValue() {
+    public boolean onFalseValue() {
+        return true;
     }
 
     @Override
-    public void onNullValue() {
+    public boolean onNullValue() {
+        return true;
     }
 
 }

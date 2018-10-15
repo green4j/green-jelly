@@ -28,6 +28,10 @@ package org.green.jelly;
  */
 public final class JsonParser {
 
+    public interface Next {
+        Next next();
+    }
+
     private static final int LEXEMA_TRUE_STARTED_T = 1;
     private static final int LEXEMA_TRUE_STARTED_TR = LEXEMA_TRUE_STARTED_T + 1;
     private static final int LEXEMA_TRUE_STARTED_TRU = LEXEMA_TRUE_STARTED_TR + 1;
@@ -110,7 +114,12 @@ public final class JsonParser {
     private static final int JSON_STARTED_NOTIFICATION_REQUIRED = -1;
     private static final int RESET_REQUIRED = JSON_STARTED_NOTIFICATION_REQUIRED - 1;
 
-    private final JsonStringBuilder string;
+    private final Next next = new Next() {
+        @Override
+        public Next next() {
+            return JsonParser.this.next();
+        }
+    };
 
     private final JsonNumber number = new JsonNumber() {
         @Override
@@ -128,23 +137,30 @@ public final class JsonParser {
             return mantissa() + "E" + exp();
         }
     };
+
+    private final JsonStringBuilder string;
+
+    private JsonParserListener listener;
+
+    private boolean notifyObjectMemberNameString;
+
+    private CharSequence currentData;
+    private int currentLen;
+    private int currentStart;
+    private int currentPos;
+    private int currentLexemaState;
+    private int currentLexemaPosition;
+
     private long numberMantissa;
     private int numberMantissaExp;
     private int numberExp;
     private int numberMinuses;
 
-    private int[] scopeStack = new int[8];
-    private int scopeStackDepth;
-
-    private JsonParserListener listener;
-
     private String error;
     private int errorPosition;
 
-    private boolean notifyObjectMemberNameString;
-
-    private int currentLexemaState;
-    private int currentLexemaPosition;
+    private int[] scopeStack = new int[8];
+    private int scopeStackDepth;
 
     public JsonParser() {
         this(new CopyingStringBuilder());
@@ -184,11 +200,19 @@ public final class JsonParser {
         return error != null;
     }
 
-    public JsonParser parse(final CharSequence data) {
+    public Next parse(final CharSequence data) {
         return parse(data, 0, data.length());
     }
 
-    public JsonParser parse(final CharSequence data, final int start, final int len) {
+    public Next parse(final CharSequence data, final int start, final int len) {
+        this.currentData = data;
+        this.currentStart = start;
+        this.currentLen = len;
+        this.currentPos = 0;
+        return next();
+    }
+
+    private Next next() {
         final JsonParserListener lnr = listener;
 
         assert lnr != null;
@@ -206,9 +230,13 @@ public final class JsonParser {
 
         final JsonStringBuilder stringBuilder = this.string;
 
-        try {
-            int pos = 0;
+        final CharSequence data = currentData;
+        final int start = currentStart;
+        final int len = currentLen;
 
+        int pos = currentPos;
+
+        try {
             _end:
             while (pos < len) {
                 char c = data.charAt(start + pos);
@@ -221,52 +249,80 @@ public final class JsonParser {
                         case 0x0d:
                         case 0x20:
                             break;
-                        case '{':
+                        case '{': {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_CURLY_BRACKET_LEFT_READY;
-                            if (!onCurlyBracketLeft(lnr, currentLexPos)) {
-                                return this;
+                            final int r = onCurlyBracketLeft(lnr, currentLexPos);
+                            if (r == 0) {
+                                break;
                             }
-                            break;
-                        case '}':
+                            if (r > 0) {
+                                pos++;
+                                break _end;
+                            }
+                            return null;
+                        }
+                        case '}': {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_CURLY_BRACKET_RIGHT_READY;
-                            if (!onCurlyBracketRight(lnr, currentLexPos)) {
-                                return this;
+                            final int r = onCurlyBracketRight(lnr, currentLexPos);
+                            if (r == 0) {
+                                break;
                             }
-                            break;
-                        case '[':
+                            if (r > 0) {
+                                pos++;
+                                break _end;
+                            }
+                            return null;
+                        }
+                        case '[': {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_BOX_BRACKET_LEFT_READY;
-                            if (!onBoxBracketLeft(lnr, currentLexPos)) {
-                                return this;
+                            final int r = onBoxBracketLeft(lnr, currentLexPos);
+                            if (r == 0) {
+                                break;
                             }
-                            break;
-                        case ']':
+                            if (r > 0) {
+                                pos++;
+                                break _end;
+                            }
+                            return null;
+                        }
+                        case ']': {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_BOX_BRACKET_RIGHT_READY;
-                            if (!onBoxBracketRight(lnr, currentLexPos)) {
-                                return this;
+                            final int r = onBoxBracketRight(lnr, currentLexPos);
+                            if (r == 0) {
+                                break;
                             }
-                            break;
-                        case ',':
+                            if (r > 0) {
+                                pos++;
+                                break _end;
+                            }
+                            return null;
+                        }
+                        case ',': {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_COMMA_READY;
-                            if (!onComma(currentLexPos)) {
-                                return this;
+                            final int r = onComma(currentLexPos);
+                            if (r == 0) {
+                                break;
                             }
-                            break;
-                        case ':':
+                            return null;
+                        }
+                        case ':': {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_COLON_READY;
-                            if (!onColon(currentLexPos)) {
-                                return this;
+                            final int r = onColon(currentLexPos);
+                            if (r == 0) {
+                                break;
                             }
-                            break;
-                        case 't':
+                            return null;
+                        }
+                        case 't': {
                             if (currentLexState > LEXEMA_NUMBER_READY) {
                                 error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                return this;
+                                return null;
                             }
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'true' value
@@ -275,20 +331,26 @@ public final class JsonParser {
                                     && data.charAt(++pos) == 'e') {
 
                                     currentLexState = LEXEMA_TRUE_READY;
-                                    if (!onTrue(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onTrue(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 }
                                 error(ERROR_TRUE_EXPECTED_MESSAGE, currentLexPos);
-                                return this;
+                                return null;
                             }
                             currentLexState = LEXEMA_TRUE_STARTED_T;
                             break;
-                        case 'f':
+                        }
+                        case 'f': {
                             if (currentLexState > LEXEMA_NUMBER_READY) {
                                 error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                return this;
+                                return null;
                             }
                             currentLexPos = pos;
                             if (len - pos > 4) { // try to read the whole 'false' value
@@ -298,20 +360,26 @@ public final class JsonParser {
                                     && data.charAt(++pos) == 'e') {
 
                                     currentLexState = LEXEMA_FALSE_READY;
-                                    if (!onFalse(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onFalse(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 }
                                 error(ERROR_FALSE_EXPECTED_MESSAGE, currentLexPos);
-                                return this;
+                                return null;
                             }
                             currentLexState = LEXEMA_FALSE_STARTED_F;
                             break;
-                        case 'n':
+                        }
+                        case 'n': {
                             if (currentLexState > LEXEMA_NUMBER_READY) {
                                 error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                return this;
+                                return null;
                             }
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'null' value
@@ -320,17 +388,23 @@ public final class JsonParser {
                                     && data.charAt(++pos) == 'l') {
 
                                     currentLexState = LEXEMA_NULL_READY;
-                                    if (!onNull(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onNull(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 }
                                 error(ERROR_NULL_EXPECTED_MESSAGE, currentLexPos);
-                                return this;
+                                return null;
                             }
                             currentLexState = LEXEMA_NULL_STARTED_N;
                             break;
-                        case '"':
+                        }
+                        case '"': {
                             stringBuilder.start(data, start + pos);
                             currentLexPos = pos;
                             if (len - pos > 1) { // try to read available part of the string value
@@ -342,10 +416,15 @@ public final class JsonParser {
                                         case '"':
                                             stringBuilder.append(data, startStringPos, pos - startStringPos);
                                             currentLexState = LEXEMA_STRING_READY;
-                                            if (!onStringReady(lnr, currentLexPos)) {
-                                                return this;
+                                            final int r = onStringReady(lnr, currentLexPos);
+                                            if (r == 0) {
+                                                break _next_char;
                                             }
-                                            break _next_char;
+                                            if (r > 0) {
+                                                pos++;
+                                                break _end;
+                                            }
+                                            return null;
                                         case '\\':
                                             stringBuilder.append(data, startStringPos, pos - startStringPos);
                                             stringBuilder.appendEscape();
@@ -361,7 +440,8 @@ public final class JsonParser {
                             }
                             currentLexState = LEXEMA_STRING_STARTED;
                             break;
-                        case '-':
+                        }
+                        case '-': {
                             numberMantissa = 0;
                             numberMantissaExp = 0;
                             numberExp = 0;
@@ -369,7 +449,8 @@ public final class JsonParser {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
                             break;
-                        case '+':
+                        }
+                        case '+': {
                             numberMantissa = 0;
                             numberMantissaExp = 0;
                             numberExp = 0;
@@ -377,6 +458,7 @@ public final class JsonParser {
                             currentLexPos = pos;
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
                             break;
+                        }
                         case '0':
                         case '1':
                         case '2':
@@ -386,7 +468,7 @@ public final class JsonParser {
                         case '6':
                         case '7':
                         case '8':
-                        case '9':
+                        case '9': {
                             numberMantissa = c - '0';
                             numberMantissaExp = 0;
                             numberExp = 0;
@@ -423,21 +505,27 @@ public final class JsonParser {
                                         case ':':
                                             pos--;
                                             currentLexState = LEXEMA_NUMBER_READY;
-                                            if (!onNumber(lnr, currentLexPos)) {
-                                                return this;
+                                            final int r = onNumber(lnr, currentLexPos);
+                                            if (r == 0) {
+                                                break _next_char;
                                             }
-                                            break _next_char;
+                                            if (r > 0) {
+                                                pos++;
+                                                break _end;
+                                            }
+                                            return null;
                                         default:
                                             error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                            return this;
+                                            return null;
                                     }
                                 }
                             }
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
                             break;
+                        }
                         default:
                             error(ERROR_UNEXPECTED_CHAR_MESSAGE, pos);
-                            return this;
+                            return null;
                     }
                 } else {
                     _next_char:
@@ -451,10 +539,15 @@ public final class JsonParser {
                                     case '"':
                                         stringBuilder.append(data, startStringPos, pos - startStringPos);
                                         currentLexState = LEXEMA_STRING_READY;
-                                        if (!onStringReady(lnr, currentLexPos)) {
-                                            return this;
+                                        final int r = onStringReady(lnr, currentLexPos);
+                                        if (r == 0) {
+                                            break _next_char;
                                         }
-                                        break _next_char;
+                                        if (r > 0) {
+                                            pos++;
+                                            break _end;
+                                        }
+                                        return null;
                                     case '\\':
                                         stringBuilder.append(data, startStringPos, pos - startStringPos);
                                         stringBuilder.appendEscape();
@@ -510,7 +603,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_INCORRECT_ESCAPING_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_STRING_STARTED_ESCAPE_UNICODE: {
@@ -519,7 +612,7 @@ public final class JsonParser {
                                 break;
                             } else {
                                 error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return this;
+                                return null;
                             }
                         }
                         case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_1: {
@@ -528,7 +621,7 @@ public final class JsonParser {
                                 break;
                             } else {
                                 error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return this;
+                                return null;
                             }
                         }
                         case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_2: {
@@ -537,7 +630,7 @@ public final class JsonParser {
                                 break;
                             } else {
                                 error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return this;
+                                return null;
                             }
                         }
                         case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3: {
@@ -546,7 +639,7 @@ public final class JsonParser {
                                 break;
                             } else {
                                 error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return this;
+                                return null;
                             }
                         }
 
@@ -581,13 +674,18 @@ public final class JsonParser {
                                     case ':':
                                         pos--;
                                         currentLexState = LEXEMA_NUMBER_READY;
-                                        if (!onNumber(lnr, currentLexPos)) {
-                                            return this;
+                                        final int r = onNumber(lnr, currentLexPos);
+                                        if (r == 0) {
+                                            break _next_char;
                                         }
-                                        break _next_char;
+                                        if (r > 0) {
+                                            pos++;
+                                            break _end;
+                                        }
+                                        return null;
                                     default:
                                         error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                        return this;
+                                        return null;
                                 }
                             }
                         }
@@ -608,7 +706,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
@@ -639,13 +737,18 @@ public final class JsonParser {
                                     case ':':
                                         pos--;
                                         currentLexState = LEXEMA_NUMBER_READY;
-                                        if (!onNumber(lnr, currentLexPos)) {
-                                            return this;
+                                        final int r = onNumber(lnr, currentLexPos);
+                                        if (r == 0) {
+                                            break _next_char;
                                         }
-                                        break _next_char;
+                                        if (r > 0) {
+                                            pos++;
+                                            break _end;
+                                        }
+                                        return null;
                                     default:
                                         error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                        return this;
+                                        return null;
                                 }
                             }
                         }
@@ -673,7 +776,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_NUMBER_STARTED_E_SIGN: {
@@ -693,7 +796,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_NUMBER_STARTED_E_VALUE: {
@@ -723,13 +826,18 @@ public final class JsonParser {
                                 case ':':
                                     pos--;
                                     currentLexState = LEXEMA_NUMBER_READY;
-                                    if (!onNumber(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onNumber(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 default:
                                     error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
 
@@ -741,7 +849,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_TRUE_STARTED_TR: {
@@ -751,20 +859,25 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_TRUE_STARTED_TRU: {
                             switch (c) {
                                 case 'e':
                                     currentLexState = LEXEMA_TRUE_READY;
-                                    if (!onTrue(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onTrue(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 default:
                                     error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
 
@@ -776,7 +889,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_FALSE_STARTED_FA: {
@@ -786,7 +899,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_FALSE_STARTED_FAL: {
@@ -796,20 +909,25 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_FALSE_STARTED_FALS: {
                             switch (c) {
                                 case 'e':
                                     currentLexState = LEXEMA_FALSE_READY;
-                                    if (!onFalse(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onFalse(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 default:
                                     error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
 
@@ -821,7 +939,7 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_NULL_STARTED_NU: {
@@ -831,35 +949,41 @@ public final class JsonParser {
                                     break _next_char;
                                 default:
                                     error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         case LEXEMA_NULL_STARTED_NUL: {
                             switch (c) {
                                 case 'l':
                                     currentLexState = LEXEMA_NULL_READY;
-                                    if (!onNull(lnr, currentLexPos)) {
-                                        return this;
+                                    final int r = onNull(lnr, currentLexPos);
+                                    if (r == 0) {
+                                        break _next_char;
                                     }
-                                    break _next_char;
+                                    if (r > 0) {
+                                        pos++;
+                                        break _end;
+                                    }
+                                    return null;
                                 default:
                                     error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                    return this;
+                                    return null;
                             }
                         }
                         /* unknown state */
                         default:
                             error(ERROR_INTERNAL_UNEXPECTED_LEXEMA_ERROR_MESSAGE, pos);
-                            return this;
+                            return null;
                     }
                 }
                 pos++;
             }
+            return pos < len ? next : null;
         } finally {
+            currentPos = pos;
             currentLexemaState = currentLexState;
             currentLexemaPosition = currentLexPos;
         }
-        return this;
     }
 
     /**
@@ -913,99 +1037,139 @@ public final class JsonParser {
         numberExp = numberExp + numberMantissaExp;
     }
 
-    private boolean onCurlyBracketLeft(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onCurlyBracketLeft(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onObjectStarted();
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onObjectStarted();
                 replaceScope(EXPRESSION_OBJECT_STARTED);
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onObjectStarted();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onObjectStarted();
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
                 pushScope(EXPRESSION_OBJECT_STARTED);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             case EXPRESSION_ARRAY_STARTED:
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onObjectStarted();
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onObjectStarted();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
                 pushScope(EXPRESSION_OBJECT_STARTED);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_CURLY_BRACKET_LEFT_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onCurlyBracketRight(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onCurlyBracketRight(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
             case EXPRESSION_OBJECT_STARTED:
-            case EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER:
-                lnr.onObjectEnded();
+            case EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER: {
+                final boolean r = lnr.onObjectEnded();
                 popScope();
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_VALUE:
-                lnr.onObjectEnded();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_VALUE: {
+                final boolean r = lnr.onObjectEnded();
                 popScope();
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_CURLY_BRACKET_RIGHT_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onBoxBracketLeft(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onBoxBracketLeft(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onArrayStarted();
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onArrayStarted();
                 replaceScope(EXPRESSION_ARRAY_STARTED);
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onArrayStarted();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onArrayStarted();
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
                 pushScope(EXPRESSION_ARRAY_STARTED);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             case EXPRESSION_ARRAY_STARTED:
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onArrayStarted();
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onArrayStarted();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
                 pushScope(EXPRESSION_ARRAY_STARTED);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_BOX_BRACKET_LEFT_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onBoxBracketRight(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onBoxBracketRight(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
             case EXPRESSION_ARRAY_STARTED:
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onArrayEnded();
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onArrayEnded();
                 popScope();
-                break;
-            case EXPRESSION_ARRAY_STARTED_VALUE:
-                lnr.onArrayEnded();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_ARRAY_STARTED_VALUE: {
+                final boolean r = lnr.onArrayEnded();
                 popScope();
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_BOX_BRACKET_RIGHT_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onComma(final int lexemaPosition) {
+    private int onComma(final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
@@ -1017,12 +1181,12 @@ public final class JsonParser {
                 break;
             default:
                 error(ERROR_UNEXPECTED_COMMA_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onColon(final int lexemaPosition) {
+    private int onColon(final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
@@ -1031,141 +1195,205 @@ public final class JsonParser {
                 break;
             default:
                 error(ERROR_UNEXPECTED_COLON_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onStringReady(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onStringReady(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         final JsonStringBuilder value = string;
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onStringValue(value);
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onStringValue(value);
                 popScope();
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             case EXPRESSION_OBJECT_STARTED:
-            case EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER:
-                lnr.onObjectMember(value);
+            case EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER: {
+                final boolean r = lnr.onObjectMember(value);
                 if (notifyObjectMemberNameString) {
                     lnr.onStringValue(value);
                 }
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_NAME);
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onStringValue(value);
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onStringValue(value);
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             case EXPRESSION_ARRAY_STARTED:
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onStringValue(value);
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onStringValue(value);
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_STRING_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onNumber(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onNumber(final JsonParserListener lnr, final int lexemaPosition) {
         setNumber();
 
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onNumberValue(number);
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onNumberValue(number);
                 popScope();
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onNumberValue(number);
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onNumberValue(number);
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             case EXPRESSION_ARRAY_STARTED:
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onNumberValue(number);
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onNumberValue(number);
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_NUMBER_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onTrue(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onTrue(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onTrueValue();
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onTrueValue();
                 popScope();
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onTrueValue();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onTrueValue();
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
-                break;
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onTrueValue();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onTrueValue();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_TRUE_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onFalse(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onFalse(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onFalseValue();
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onFalseValue();
                 popScope();
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onFalseValue();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onFalseValue();
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
-                break;
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onFalseValue();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onFalseValue();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_FALSE_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onNull(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onNull(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case EXPRESSION_INITIAL:
-                lnr.onNullValue();
+            case EXPRESSION_INITIAL: {
+                final boolean r = lnr.onNullValue();
                 popScope();
-                break;
-            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER:
-                lnr.onNullValue();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
+                final boolean r = lnr.onNullValue();
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
-                break;
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER:
-                lnr.onNullValue();
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
+            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
+                final boolean r = lnr.onNullValue();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
-                break;
+                if (r) {
+                    break;
+                }
+                return 1;
+            }
             default:
                 error(ERROR_UNEXPECTED_NULL_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
-    private boolean onEoj(final JsonParserListener lnr, final int lexemaPosition) {
+    private int onEoj(final JsonParserListener lnr, final int lexemaPosition) {
         final int currentScope = peekScope();
 
         switch (currentScope) {
@@ -1178,18 +1406,18 @@ public final class JsonParser {
                     case LEXEMA_TRUE_STARTED_TR:
                     case LEXEMA_TRUE_STARTED_TRU:
                         error(ERROR_TRUE_EXPECTED_MESSAGE, lexemaPosition);
-                        return false;
+                        return -1;
                     case LEXEMA_FALSE_STARTED_F:
                     case LEXEMA_FALSE_STARTED_FA:
                     case LEXEMA_FALSE_STARTED_FAL:
                     case LEXEMA_FALSE_STARTED_FALS:
                         error(ERROR_FALSE_EXPECTED_MESSAGE, lexemaPosition);
-                        return false;
+                        return -1;
                     case LEXEMA_NULL_STARTED_N:
                     case LEXEMA_NULL_STARTED_NU:
                     case LEXEMA_NULL_STARTED_NUL:
                         error(ERROR_NULL_EXPECTED_MESSAGE, lexemaPosition);
-                        return false;
+                        return -1;
                     case LEXEMA_STRING_STARTED:
                     case LEXEMA_STRING_STARTED_ESCAPE:
                     case LEXEMA_STRING_STARTED_ESCAPE_UNICODE:
@@ -1197,12 +1425,12 @@ public final class JsonParser {
                     case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_2:
                     case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3:
                         error(ERROR_INCORRECT_STRING_MESSAGE, lexemaPosition);
-                        return false;
+                        return -1;
                     case LEXEMA_NUMBER_STARTED_MANTISSA_SIGN:
                     case LEXEMA_NUMBER_STARTED_E:
                     case LEXEMA_NUMBER_STARTED_E_SIGN:
                         error(ERROR_INCORRECT_NUMBER_MESSAGE, lexemaPosition);
-                        return false;
+                        return -1;
                     case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART:
                     case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART:
                     case LEXEMA_NUMBER_STARTED_E_VALUE:
@@ -1214,9 +1442,9 @@ public final class JsonParser {
                 break;
             default:
                 error(ERROR_INTERNAL_UNEXPECTED_LEXEMA_ERROR_MESSAGE, lexemaPosition);
-                return false;
+                return -1;
         }
-        return true;
+        return 0;
     }
 
     private void clearScope() {
