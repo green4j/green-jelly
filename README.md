@@ -69,7 +69,8 @@ boolean onFalseValue();
 
 boolean onNullValue();
 ```
-If any of method returns `false`, the parsing is stopped and can be continued then (see [Parsing with steps](#parsing-with-steps))
+If any of method returns `false`, the parsing is stopped and can be continued then (see [Parsing with steps](#parsing-with-steps)).
+A default implementatation of the listener is included to the library as `JsonParserListenerAdaptor`. All callbacks of the adaptor are empty and just return `true`.
 
 #### Numbers
 
