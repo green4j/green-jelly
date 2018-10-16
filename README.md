@@ -154,7 +154,7 @@ System.out.println(writer.output().toString());
 
 ### Encodings
 
-The library works over character based abstractions, so, it doesn't implement any encoding functionality. As in case of Gson, for example, the user have to care about correct bytes-to/from-chars transformation if any required.
+The library works over character based abstractions, so, it doesn't implement any encoding functionality. As in case of Gson, for instance, the user has to care about correct bytes-to/from-chars transformation if any required.
 
 ## Performance
 
