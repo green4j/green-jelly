@@ -28,8 +28,13 @@ final JsonParser parser = new JsonParser();
 parser.setListener(new JsonParserListener() {
 ...
 });
-parser.parse("[1,2,3]").eoj();
-parser.parse("\"st").parse("ring\"").eoj();
+
+parser.parse("[1,2,3]");
+parser.eoj();
+
+parser.parse("\"st");
+parser.parse("ring\"");
+parser.eoj();
 ```
 #### JsonStringBuilder
 
