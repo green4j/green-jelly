@@ -5,7 +5,7 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 * **minimal**: MIT licensed with no dependencies (i.e. just drop the code into your project)
 * **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens with verbose `if` or `switch`, just handle a callback you are interested in
 * **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a receive/send buffer to prevent memory copying
-* **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see below)
+* **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see [Performance](#performance))
 * **robust**: built according to [json.org](https://json.org/) schema with some extensions for the number values (see [Numbers](#numbers))
 
 ## How to build
@@ -74,7 +74,7 @@ A default implementatation of the listener is included to the library as `JsonPa
 
 #### Numbers
 
-Supported format of number values are a bit more relaxed than specified on  [json.org](https://json.org/):
+Supported format of number values is a bit more relaxed than specified on [json.org](https://json.org/):
 * the numbers can start with both `+` or `-`
 * the leading zeros are allowed for both mantissa and exponent
 
