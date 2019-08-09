@@ -437,6 +437,7 @@ public final class JsonParser {
                                         break;
                                     }
                                 }
+                                stringBuilder.append(data, startStringPos, pos - startStringPos);
                             }
                             currentLexState = LEXEMA_STRING_STARTED;
                             break;
@@ -557,6 +558,7 @@ public final class JsonParser {
                                         break;
                                 }
                                 if (++pos == len) {
+                                    //stringBuilder.append(data, startStringPos, pos - startStringPos);
                                     break;
                                 }
                                 c = data.charAt(start + pos);
