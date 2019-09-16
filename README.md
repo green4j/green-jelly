@@ -79,7 +79,7 @@ A default implementatation of the listener is included to the library as `JsonPa
 
 #### Numbers
 
-Supported format of number values is a bit more relaxed than specified on [json.org](https://json.org/):
+Supported format of number values is a bit more relaxed than specified in [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm):
 * the numbers can start with both `+` or `-`
 * the leading zeros are allowed for both mantissa and exponent
 
