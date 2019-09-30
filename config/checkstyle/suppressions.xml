@@ -3,5 +3,5 @@
         "-//Puppy Crawl//DTD Suppressions 1.0//EN"
         "http://www.puppycrawl.com/dtds/suppressions_1_0.dtd">
 <suppressions>
-    <suppress files="JsonParser.java|JsonGenerator.java" checks="MethodLength|FallThrough"/>
+    <suppress files="JsonParser.java|JsonGenerator.java|JsonParserTest.java" checks="MethodLength|FallThrough"/>
 </suppressions>
