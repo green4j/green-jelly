@@ -62,6 +62,46 @@ public class JsonParserTest {
         assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
+        // a string
+        events.clear();
+        copyingParser.parse("\"abcd\"");
+        copyingParser.eoj();
+
+        assertNotNull(events.pop().as(JsonEnd.class));
+        event = events.pop().as(StringValue.class);
+        assertNotNull(event);
+        assertEquals("abcd", event.string());
+        assertNotNull(events.pop().as(JsonStart.class));
+        assertTrue(events.isEmpty());
+
+        // a split string
+        events.clear();
+        copyingParser.parse("\"ab");
+        copyingParser.parse("cd\"");
+        copyingParser.eoj();
+
+        assertNotNull(events.pop().as(JsonEnd.class));
+        event = events.pop().as(StringValue.class);
+        assertNotNull(event);
+        assertEquals("abcd", event.string());
+        assertNotNull(events.pop().as(JsonStart.class));
+        assertTrue(events.isEmpty());
+
+        // one more split string
+        events.clear();
+        copyingParser.parse("\"a");
+        copyingParser.parse("b");
+        copyingParser.parse("c");
+        copyingParser.parse("d\"");
+        copyingParser.eoj();
+
+        assertNotNull(events.pop().as(JsonEnd.class));
+        event = events.pop().as(StringValue.class);
+        assertNotNull(event);
+        assertEquals("abcd", event.string());
+        assertNotNull(events.pop().as(JsonStart.class));
+        assertTrue(events.isEmpty());
+
         // whitespaces out of the literal
         events.clear();
         copyingParser.parse(" \t\r\n\"te st\"  \t\r\n\"");
@@ -428,8 +468,10 @@ public class JsonParserTest {
         assertTrue(events.isEmpty());
 
         events.clear();
-        parser.parse("{ \"prop1\":");
-        parser.parse(" -12.350, \n\n\"prop2\": [\"aaa\", \"bbb\" ]");
+        parser.parse("{ \"pr");
+        parser.parse("op1\":");
+        parser.parse(" -12.");
+        parser.parse("350, \n\n\"prop2\": [\"aaa\", \"bbb\" ]");
         parser.parse(", \"prop3\": { \"prop3_1\": [1, 2, 3,\n4], \"prop3_2\": null}}");
         parser.eoj();
 

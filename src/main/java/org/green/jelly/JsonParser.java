@@ -434,6 +434,7 @@ public final class JsonParser {
                                             break;
                                     }
                                     if (++pos == len) {
+                                        stringBuilder.append(data, startStringPos, pos - startStringPos);
                                         break;
                                     }
                                 }
@@ -557,6 +558,7 @@ public final class JsonParser {
                                         break;
                                 }
                                 if (++pos == len) {
+                                    stringBuilder.append(data, startStringPos, pos - startStringPos);
                                     break;
                                 }
                                 c = data.charAt(start + pos);
