@@ -439,7 +439,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
 
     @Override
     public CharSequence subSequence(final int start, final int end) {
-        throw new UnsupportedOperationException();
+        return buffer.subSequence(start, end);
     }
 
     @Override

@@ -28,7 +28,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
-public class JsonGeneratorSelectById {
+public class JsonGeneratorTest {
 
     private static final String[] ESCAPING = new String[128];
 
