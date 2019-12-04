@@ -74,7 +74,7 @@ public class JsonParserTest {
         assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        // a split string
+        // a string by chunks
         events.clear();
         copyingParser.parse("\"ab");
         copyingParser.parse("cd\"");
@@ -87,12 +87,29 @@ public class JsonParserTest {
         assertNotNull(events.pop().as(JsonStart.class));
         assertTrue(events.isEmpty());
 
-        // one more split string
+        // one more string by chunks
         events.clear();
         copyingParser.parse("\"a");
         copyingParser.parse("b");
         copyingParser.parse("c");
         copyingParser.parse("d\"");
+        copyingParser.eoj();
+
+        assertNotNull(events.pop().as(JsonEnd.class));
+        event = events.pop().as(StringValue.class);
+        assertNotNull(event);
+        assertEquals("abcd", event.string());
+        assertNotNull(events.pop().as(JsonStart.class));
+        assertTrue(events.isEmpty());
+
+        // one more string by chunks
+        events.clear();
+        copyingParser.parse("\"");
+        copyingParser.parse("");
+        copyingParser.parse("abc");
+        copyingParser.parse("d");
+        copyingParser.parse("\"");
+        copyingParser.parse("");
         copyingParser.eoj();
 
         assertNotNull(events.pop().as(JsonEnd.class));
