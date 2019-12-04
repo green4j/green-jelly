@@ -29,7 +29,7 @@ public class CharArrayCharSequence implements CharSequence {
     @Override
     public char charAt(final int index) {
         if (index >= length) {
-            throw new ArrayIndexOutOfBoundsException(index + " with length: " +length);
+            throw new ArrayIndexOutOfBoundsException(index + " with length: " + length);
         }
         return chars[index];
     }
