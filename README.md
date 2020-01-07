@@ -82,6 +82,7 @@ A default implementatation of the listener is included to the library as `JsonPa
 Supported format of number values is a bit more relaxed than specified in [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm):
 * the numbers can start with both `+` or `-`
 * the leading zeros are allowed for both mantissa and exponent
+* mantissa is presented by java's signed long which is a bit whider than JavaScript numbers [-(2^53)+1, (2^53)-1]
 
 To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point arithmetic. Numbers are presented with the following interface:
 ```java
@@ -90,6 +91,7 @@ public interface JsonNumber {
     long mantissa();
 
     int exp();
+
 }
 ```
 Feel free to use any type of arithmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, out-of-the-box `java.math.BigDecimal`, which a bit slow and allocates new memory, etc. An example of `java.math.BigDecimal` using:
