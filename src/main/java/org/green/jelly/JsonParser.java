@@ -1310,6 +1310,7 @@ public final class JsonParser {
                 }
                 return 1;
             }
+            case EXPRESSION_ARRAY_STARTED:
             case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
                 final boolean r = lnr.onTrueValue();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
@@ -1345,6 +1346,7 @@ public final class JsonParser {
                 }
                 return 1;
             }
+            case EXPRESSION_ARRAY_STARTED:
             case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
                 final boolean r = lnr.onFalseValue();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
@@ -1380,6 +1382,7 @@ public final class JsonParser {
                 }
                 return 1;
             }
+            case EXPRESSION_ARRAY_STARTED:
             case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
                 final boolean r = lnr.onNullValue();
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);

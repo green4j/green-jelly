@@ -411,7 +411,7 @@ public class JsonParserTest {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
-        parser.parse("[[[1, 2], [2], [3], [{},{},{}], [");
+        parser.parse("[[true, false], [null], [[1, 2], [2], [3], [{},{},{}], [");
         parser.parse("]");
         parser.parse("], [\"a\", \"b\", \"c\"]");
         parser.parse(", [\n]\t]");
@@ -420,6 +420,13 @@ public class JsonParserTest {
         final JsonEvents expectedEvents = new JsonEvents();
         expectedEvents.onJsonStarted();
         expectedEvents.onArrayStarted();
+        expectedEvents.onArrayStarted();
+        expectedEvents.onTrueValue();
+        expectedEvents.onFalseValue();
+        expectedEvents.onArrayEnded();
+        expectedEvents.onArrayStarted();
+        expectedEvents.onNullValue();
+        expectedEvents.onArrayEnded();
         expectedEvents.onArrayStarted();
         expectedEvents.onArrayStarted();
         expectedEvents.onNumberValue(1, 0);
