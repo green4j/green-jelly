@@ -50,6 +50,11 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
         public int length() {
             return frameSize;
         }
+
+        @Override
+        public String toString() {
+            return new String(array, frameStart, frameSize);
+        }
     };
 
     private byte[] array;

@@ -47,6 +47,11 @@ public final class AppendableWriter<T extends Appendable> implements JsonBuffere
         public int length() {
             return Math.abs(frameSize);
         }
+
+        @Override
+        public String toString() {
+            return new String(frameArray, 0, length());
+        }
     };
 
     private char[] frameArray = new char[32];
