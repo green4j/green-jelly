@@ -19,7 +19,7 @@ Just run `gradlew` to build the library. But prefer to just drop the code into y
 Generic pattern of the usage if the following:
 * create instance of the JsonParser
 * set a listener (an instance of the `JsonParserListener` interface) to get all parsing events
-* call the `parse` method as many times as parts of a JSON document you have
+* call the `parse` method as many times as many parts of a JSON document you have
 * finish the parsing with a call of the `eoj`(End Of JSON) method
 * parse next JSON document with the same instance of the parser
 
