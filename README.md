@@ -6,6 +6,7 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 * **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens with verbose `if` or `switch`, just handle a callback you are interested in
 * **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a receive/send buffer to prevent memory copying
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see [Performance](#performance)). No additional GC pauses introduced, since the code doesn't allocate new memory in its main/critical path
+* **IO buffering oriented**: the parser can be fed with several parts of one single JSON document, even byte by byte; so it's easy to use it with buffering read
 * **robust**: built according to [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm) with some extensions for the number values (see [Numbers](#numbers))
 
 ## How to build
