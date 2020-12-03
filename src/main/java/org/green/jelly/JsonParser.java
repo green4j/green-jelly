@@ -212,6 +212,11 @@ public final class JsonParser {
         return next();
     }
 
+    public void parseAndEoj(final CharSequence data) {
+        parse(data);
+        eoj();
+    }
+
     private Next next() {
         final JsonParserListener lnr = listener;
 

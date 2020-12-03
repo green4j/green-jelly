@@ -460,6 +460,36 @@ public class JsonParserTest {
         expectedEvents.onJsonEnded();
 
         assertEquals(expectedEvents, events);
+
+        events.clear();
+        parser.parse("[");
+        parser.parse("{ \"a_1\": 1, \"a_2\": true},");
+        parser.parse("{ \"b_1\": \"b_1 value\", \"b_2\": null},");
+        parser.parse("{},");
+        parser.parse("]");
+        parser.eoj();
+
+        expectedEvents.clear();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onArrayStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("a_1");
+        expectedEvents.onNumberValue(1, 0);
+        expectedEvents.onObjectMember("a_2");
+        expectedEvents.onTrueValue();
+        expectedEvents.onObjectEnded();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("b_1");
+        expectedEvents.onStringValue("b_1 value");
+        expectedEvents.onObjectMember("b_2");
+        expectedEvents.onNullValue();
+        expectedEvents.onObjectEnded();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectEnded();
+        expectedEvents.onArrayEnded();
+        expectedEvents.onJsonEnded();
+
+        assertEquals(expectedEvents, events);
     }
 
     @Test

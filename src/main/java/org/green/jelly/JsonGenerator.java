@@ -113,6 +113,15 @@ public final class JsonGenerator {
         this.indent = indent;
     }
 
+    public JsonGenerator(final JsonBufferedWriter output) {
+        this(output, true);
+    }
+
+    public JsonGenerator(final JsonBufferedWriter output, final boolean indent) {
+        this(indent);
+        this.output = output;
+    }
+
     public boolean isIndent() {
         return indent;
     }
