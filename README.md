@@ -21,7 +21,7 @@ Generic pattern of the usage if the following:
 * create instance of the JsonParser
 * set a listener (an instance of the `JsonParserListener` interface) to get all parsing events
 * call the `parse` method as many times as many parts of a JSON document you have
-* finish the parsing with a call of the `eoj`(End Of JSON) method
+* finish the parsing with a call of the `eoj`(End Of JSON) method (or use `parseAndEoj` method)
 * parse next JSON document with the same instance of the parser
 
 ```java
@@ -30,12 +30,11 @@ parser.setListener(new JsonParserListener() {
 ...
 });
 
-parser.parse("[1,2,3]");
-parser.eoj();
-
 parser.parse("\"st");
 parser.parse("ring\"");
 parser.eoj();
+
+parser.parseAndEoj("[1,2,3]");
 ```
 #### JsonStringBuilder
 
@@ -100,6 +99,12 @@ Feel free to use any type of arithmetic like [decimal4j](https://github.com/tool
 ```java
 JsonNumber number = ...
 BigDecimal decimal = BigDecimal.valueOf(number.mantissa(), -number.exp());
+```
+Sometimes vendor sends numbers as string values. To parse such values you can use static `JsonParser.parseNumber` method:
+```java
+MutableJsonNumber number = new MutableJsonNumber();
+JsonParser.parseNumber("134.4455", number);
+System.out.println(number);
 ```
 
 #### Error handling
