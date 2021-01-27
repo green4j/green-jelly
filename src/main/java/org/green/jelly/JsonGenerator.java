@@ -192,6 +192,18 @@ public final class JsonGenerator {
         writeStringQuoted(name, start, len, false);
     }
 
+    public void numberValueAsString(final JsonNumber value) {
+        numberValueAsString(value.mantissa(), value.exp());
+    }
+
+    public void numberValueAsString(final long value) {
+        numberValueAsString(value, 0);
+    }
+
+    public void numberValueAsString(final long mantissa, final int exp) {
+        writeNumberQuoted(mantissa, exp);
+    }
+
     public void numberValue(final long value) {
         numberValue(value, 0);
     }
@@ -369,6 +381,28 @@ public final class JsonGenerator {
         beforeLiteralAdded(scope, out);
 
         out.append(value);
+
+        afterValueAdded(scope);
+    }
+
+    private void writeNumberQuoted(final long mantissa, final int exp) {
+        final JsonBufferedWriter out = output;
+
+        assert out != null;
+
+        final int scope = peekScope();
+
+        beforeLiteralAdded(scope, out);
+
+        out.append('\"');
+
+        if (exp == 0) {
+            writeLongNumber(out, mantissa);
+        } else {
+            writeDecimalNumber(out, mantissa, exp);
+        }
+
+        out.append("\"");
 
         afterValueAdded(scope);
     }

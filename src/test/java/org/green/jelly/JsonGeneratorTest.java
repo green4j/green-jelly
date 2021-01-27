@@ -165,6 +165,58 @@ public class JsonGeneratorTest {
     }
 
     @Test
+    public void numberAsStringTest() {
+        final StringBuilder text = new StringBuilder();
+        final AppendableWriter<StringBuilder> writer = new AppendableWriter<>(text);
+        final JsonGenerator generator = new JsonGenerator();
+        generator.setOutput(writer);
+
+        final BigDecimal[] numbers = new BigDecimal[]{
+                new BigDecimal(Long.MIN_VALUE),
+                new BigDecimal(Double.toString(Double.MIN_VALUE)),
+                new BigDecimal(Float.toString(Float.MIN_VALUE)),
+                new BigDecimal("-1034567770766.0001"),
+                new BigDecimal("-1034567770766"),
+                new BigDecimal("-00234.6783456789"),
+                new BigDecimal("-0023400"),
+                new BigDecimal("-4.000000123e4"),
+                new BigDecimal("-0.123e-15"),
+                new BigDecimal("-0.123e+10"),
+                new BigDecimal("-0.123e-10"),
+                new BigDecimal("-0.005000000000000"),
+                new BigDecimal("0e0"),
+                new BigDecimal("0"),
+                new BigDecimal("-0.0"),
+                new BigDecimal("0.0"),
+                new BigDecimal("0.005000000000000"),
+                new BigDecimal("0.0000000000000001"),
+                new BigDecimal("0.123E-10"),
+                new BigDecimal("+0.123E+10"),
+                new BigDecimal("0.123E-15"),
+                new BigDecimal("4.000000123E+4"),
+                new BigDecimal("14.000000123"),
+                new BigDecimal("+0023400"),
+                new BigDecimal("00234.6783456789"),
+                new BigDecimal("1034567770766"),
+                new BigDecimal("+1034567770766.0001"),
+                new BigDecimal(Float.toString(Float.MAX_VALUE)),
+                new BigDecimal(Double.toString(Double.MAX_VALUE)),
+                new BigDecimal(Long.MAX_VALUE)
+        };
+
+        for (final BigDecimal number : numbers) {
+            text.setLength(0);
+            generator.numberValueAsString(number.unscaledValue().longValue(), -number.scale());
+            generator.eoj();
+            final String numberString = text.toString();
+            assertTrue(numberString.startsWith("\""));
+            assertTrue(numberString.endsWith("\""));
+            assertTrue(number.compareTo(
+                    new BigDecimal(numberString.substring(1, numberString.length() - 1))) == 0);
+        }
+    }
+
+    @Test
     public void trueTest() {
         final AppendableWriter<StringBuilder> writer = new AppendableWriter<>(new StringBuilder());
         final JsonGenerator generator = new JsonGenerator();
