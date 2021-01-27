@@ -1,18 +1,18 @@
 /**
  * MIT License
- *
+ * <p>
  * Copyright (c) 2018 Anatoly Gudkov
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -55,7 +55,7 @@ public final class JsonParser {
     private static final int LEXEMA_NUMBER_STARTED_MANTISSA_SIGN = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3 + 1;
     private static final int LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN + 1;
     private static final int LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART
-        = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART + 1;
+            = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART + 1;
     private static final int LEXEMA_NUMBER_STARTED_E = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART + 1;
     private static final int LEXEMA_NUMBER_STARTED_E_SIGN = LEXEMA_NUMBER_STARTED_E + 1;
     private static final int LEXEMA_NUMBER_STARTED_E_VALUE = LEXEMA_NUMBER_STARTED_E_SIGN + 1;
@@ -78,12 +78,12 @@ public final class JsonParser {
 
     private static final int EXPRESSION_OBJECT_STARTED = EXPRESSION_INITIAL + 1;
     private static final int EXPRESSION_OBJECT_STARTED_MEMBER_NAME = EXPRESSION_OBJECT_STARTED + 1;
-    private static final int EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER
-        = EXPRESSION_OBJECT_STARTED_MEMBER_NAME + 1;
-    private static final int EXPRESSION_OBJECT_STARTED_MEMBER_VALUE
-        = EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER + 1;
-    private static final int EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER
-        = EXPRESSION_OBJECT_STARTED_MEMBER_VALUE + 1;
+    private static final int EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER =
+            EXPRESSION_OBJECT_STARTED_MEMBER_NAME + 1;
+    private static final int EXPRESSION_OBJECT_STARTED_MEMBER_VALUE =
+            EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER + 1;
+    private static final int EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER =
+            EXPRESSION_OBJECT_STARTED_MEMBER_VALUE + 1;
 
     private static final int EXPRESSION_ARRAY_STARTED = EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER + 1;
     private static final int EXPRESSION_ARRAY_STARTED_VALUE = EXPRESSION_ARRAY_STARTED + 1;
@@ -114,30 +114,227 @@ public final class JsonParser {
     private static final int JSON_STARTED_NOTIFICATION_REQUIRED = -1;
     private static final int RESET_REQUIRED = JSON_STARTED_NOTIFICATION_REQUIRED - 1;
 
-    private final Next next = new Next() {
-        @Override
-        public Next next() {
-            return JsonParser.this.next();
-        }
-    };
+    public static void parseNumber(final CharSequence data, final MutableJsonNumber to) {
+        int currentLexState = LEXEMA_READY;
 
-    private final JsonNumber number = new JsonNumber() {
-        @Override
-        public long mantissa() {
-            return numberMantissa;
-        }
+        int numberMantissaExp = 0;
+        int numberMinuses = 0;
 
-        @Override
-        public int exp() {
-            return numberExp;
-        }
+        final int len = data.length();
 
-        @Override
-        public String toString() {
-            return mantissa() + "E" + exp();
-        }
-    };
+        _end:
+        for (int pos = 0; pos < len; pos++) {
+            char c = data.charAt(pos);
 
+            _next_char:
+            switch (currentLexState) {
+                case LEXEMA_READY: {
+                    switch (c) {
+                        case '-': {
+                            to.setMantissa(0);
+                            to.setExp(0);
+                            numberMantissaExp = 0;
+                            numberMinuses = 2;
+                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
+                            break _next_char;
+                        }
+                        case '+': {
+                            to.setMantissa(0);
+                            to.setExp(0);
+                            numberMantissaExp = 0;
+                            numberMinuses = 0;
+                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
+                            break _next_char;
+                        }
+                        case '0':
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5':
+                        case '6':
+                        case '7':
+                        case '8':
+                        case '9': {
+                            to.setMantissa(c - '0');
+                            to.setExp(0);
+                            numberMantissaExp = 0;
+                            numberMinuses = 0;
+
+                            if (len - pos > 1) { // try to read available part of the number value's mantissa
+                                pos++;
+                                while (true) {
+                                    c = data.charAt(pos);
+                                    if (c >= '0' && c <= '9') {
+                                        to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                                        if (++pos == len) {
+                                            break _end;
+                                        }
+                                        continue;
+                                    }
+                                    switch (c) {
+                                        case '.':
+                                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
+                                            break _next_char;
+                                        case 'e':
+                                        case 'E':
+                                            currentLexState = LEXEMA_NUMBER_STARTED_E;
+                                            break _next_char;
+                                        default:
+                                            throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                                    + ". Unexpected char '" + c + "' at the position " + pos);
+                                    }
+                                }
+                            }
+                            break _end;
+                        }
+                        default:
+                            throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                    + ". Unexpected char '" + c + "' at the position " + pos);
+                    }
+                }
+                case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
+                    while (true) {
+                        if (c >= '0' && c <= '9') {
+                            to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                            if (++pos == len) {
+                                break _end;
+                            }
+                            c = data.charAt(pos);
+                            continue;
+                        }
+                        switch (c) {
+                            case '.':
+                                currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
+                                break _next_char;
+                            case 'e':
+                            case 'E':
+                                currentLexState = LEXEMA_NUMBER_STARTED_E;
+                                break _next_char;
+                            default:
+                                throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                        + ". Unexpected char '" + c + "' at the position " + pos);
+                        }
+                    }
+                }
+                case LEXEMA_NUMBER_STARTED_MANTISSA_SIGN: {
+                    switch (c) {
+                        case '0':
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5':
+                        case '6':
+                        case '7':
+                        case '8':
+                        case '9':
+                            to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
+                            break _next_char;
+                        default:
+                            throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                    + ". Unexpected char '" + c + "' at the position " + pos);
+                    }
+                }
+                case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
+                    while (true) {
+                        if (c >= '0' && c <= '9') {
+                            to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                            numberMantissaExp--;
+                            if (++pos == len) {
+                                break _end;
+                            }
+                            c = data.charAt(pos);
+                            continue;
+                        }
+                        switch (c) {
+                            case 'e':
+                            case 'E':
+                                currentLexState = LEXEMA_NUMBER_STARTED_E;
+                                break _next_char;
+                            default:
+                                throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                        + ". Unexpected char '" + c + "' at the position " + pos);
+                        }
+                    }
+                }
+                case LEXEMA_NUMBER_STARTED_E: {
+                    switch (c) {
+                        case '+':
+                            currentLexState = LEXEMA_NUMBER_STARTED_E_SIGN;
+                            break _next_char;
+                        case '-':
+                            numberMinuses = numberMinuses | 1;
+                            currentLexState = LEXEMA_NUMBER_STARTED_E_SIGN;
+                            break _next_char;
+                        case '0':
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5':
+                        case '6':
+                        case '7':
+                        case '8':
+                        case '9':
+                            to.setExp(to.exp() * 10 + (c - '0'));
+                            currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
+                            break _next_char;
+                        default:
+                            throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                    + ". Unexpected char '" + c + "' at the position " + pos);
+                    }
+                }
+                case LEXEMA_NUMBER_STARTED_E_SIGN: {
+                    switch (c) {
+                        case '0':
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5':
+                        case '6':
+                        case '7':
+                        case '8':
+                        case '9':
+                            to.setExp(to.exp() * 10 + (c - '0'));
+                            currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
+                            break _next_char;
+                        default:
+                            throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                    + ". Unexpected char '" + c + "' at the position " + pos);
+                    }
+                }
+                case LEXEMA_NUMBER_STARTED_E_VALUE: {
+                    switch (c) {
+                        case '0':
+                        case '1':
+                        case '2':
+                        case '3':
+                        case '4':
+                        case '5':
+                        case '6':
+                        case '7':
+                        case '8':
+                        case '9':
+                            to.setExp(to.exp() * 10 + (c - '0'));
+                            break _next_char;
+                        default:
+                            throw new IllegalArgumentException(ERROR_INCORRECT_NUMBER_MESSAGE
+                                    + ". Unexpected char '" + c + "' at the position " + pos);
+                    }
+                }
+                default:
+                    throw new IllegalStateException();
+            }
+        }
+        setNumber(to, numberMinuses, numberMantissaExp);
+    }
+
+    private final Next next = () -> JsonParser.this.next();
+
+    private final MutableJsonNumber number = new MutableJsonNumber();
     private final JsonStringBuilder string;
 
     private JsonParserListener listener;
@@ -151,9 +348,7 @@ public final class JsonParser {
     private int currentLexemaState;
     private int currentLexemaPosition;
 
-    private long numberMantissa;
     private int numberMantissaExp;
-    private int numberExp;
     private int numberMinuses;
 
     private String error;
@@ -200,6 +395,11 @@ public final class JsonParser {
         return error != null;
     }
 
+    public void parseAndEoj(final CharSequence data) {
+        parse(data);
+        eoj();
+    }
+
     public Next parse(final CharSequence data) {
         return parse(data, 0, data.length());
     }
@@ -210,11 +410,6 @@ public final class JsonParser {
         this.currentLen = len;
         this.currentPos = 0;
         return next();
-    }
-
-    public void parseAndEoj(final CharSequence data) {
-        parse(data);
-        eoj();
     }
 
     private Next next() {
@@ -332,8 +527,8 @@ public final class JsonParser {
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'true' value
                                 if (data.charAt(++pos) == 'r'
-                                    && data.charAt(++pos) == 'u'
-                                    && data.charAt(++pos) == 'e') {
+                                        && data.charAt(++pos) == 'u'
+                                        && data.charAt(++pos) == 'e') {
 
                                     currentLexState = LEXEMA_TRUE_READY;
                                     final int r = onTrue(lnr, currentLexPos);
@@ -360,9 +555,9 @@ public final class JsonParser {
                             currentLexPos = pos;
                             if (len - pos > 4) { // try to read the whole 'false' value
                                 if (data.charAt(++pos) == 'a'
-                                    && data.charAt(++pos) == 'l'
-                                    && data.charAt(++pos) == 's'
-                                    && data.charAt(++pos) == 'e') {
+                                        && data.charAt(++pos) == 'l'
+                                        && data.charAt(++pos) == 's'
+                                        && data.charAt(++pos) == 'e') {
 
                                     currentLexState = LEXEMA_FALSE_READY;
                                     final int r = onFalse(lnr, currentLexPos);
@@ -389,8 +584,8 @@ public final class JsonParser {
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'null' value
                                 if (data.charAt(++pos) == 'u'
-                                    && data.charAt(++pos) == 'l'
-                                    && data.charAt(++pos) == 'l') {
+                                        && data.charAt(++pos) == 'l'
+                                        && data.charAt(++pos) == 'l') {
 
                                     currentLexState = LEXEMA_NULL_READY;
                                     final int r = onNull(lnr, currentLexPos);
@@ -448,18 +643,18 @@ public final class JsonParser {
                             break;
                         }
                         case '-': {
-                            numberMantissa = 0;
+                            number.setMantissa(0);
+                            number.setExp(0);
                             numberMantissaExp = 0;
-                            numberExp = 0;
                             numberMinuses = 2;
                             currentLexPos = pos;
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
                             break;
                         }
                         case '+': {
-                            numberMantissa = 0;
+                            number.setMantissa(0);
+                            number.setExp(0);
                             numberMantissaExp = 0;
-                            numberExp = 0;
                             numberMinuses = 0;
                             currentLexPos = pos;
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
@@ -475,9 +670,9 @@ public final class JsonParser {
                         case '7':
                         case '8':
                         case '9': {
-                            numberMantissa = c - '0';
+                            number.setMantissa(c - '0');
+                            number.setExp(0);
                             numberMantissaExp = 0;
-                            numberExp = 0;
                             numberMinuses = 0;
                             currentLexPos = pos;
                             if (len - pos > 1) { // try to read available part of the number value's mantissa
@@ -485,7 +680,7 @@ public final class JsonParser {
                                 while (true) {
                                     c = data.charAt(start + pos);
                                     if (c >= '0' && c <= '9') {
-                                        numberMantissa = numberMantissa * 10 + (c - '0');
+                                        number.setMantissa(number.mantissa() * 10 + (c - '0'));
                                         if (++pos == len) {
                                             break;
                                         }
@@ -537,7 +732,7 @@ public final class JsonParser {
                     _next_char:
                     switch (currentLexState) {
 
-                        /* string value - the rest */
+                        /* string value - the web */
                         case LEXEMA_STRING_STARTED: {
                             final int startStringPos = pos;
                             while (true) {
@@ -650,11 +845,11 @@ public final class JsonParser {
                             }
                         }
 
-                        /* number value - the rest */
+                        /* number value - the web */
                         case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
-                                    numberMantissa = numberMantissa * 10 + (c - '0');
+                                    number.setMantissa(number.mantissa() * 10 + (c - '0'));
                                     if (++pos == len) {
                                         break _end;
                                     }
@@ -708,7 +903,7 @@ public final class JsonParser {
                                 case '7':
                                 case '8':
                                 case '9':
-                                    numberMantissa = numberMantissa * 10 + (c - '0');
+                                    number.setMantissa(number.mantissa() * 10 + (c - '0'));
                                     currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
                                     break _next_char;
                                 default:
@@ -719,7 +914,7 @@ public final class JsonParser {
                         case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
-                                    numberMantissa = numberMantissa * 10 + (c - '0');
+                                    number.setMantissa(number.mantissa() * 10 + (c - '0'));
                                     numberMantissaExp--;
                                     if (++pos == len) {
                                         break _end;
@@ -778,7 +973,7 @@ public final class JsonParser {
                                 case '7':
                                 case '8':
                                 case '9':
-                                    numberExp = numberExp * 10 + (c - '0');
+                                    number.setExp(number.exp() * 10 + (c - '0'));
                                     currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
                                     break _next_char;
                                 default:
@@ -798,7 +993,7 @@ public final class JsonParser {
                                 case '7':
                                 case '8':
                                 case '9':
-                                    numberExp = numberExp * 10 + (c - '0');
+                                    number.setExp(number.exp() * 10 + (c - '0'));
                                     currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
                                     break _next_char;
                                 default:
@@ -818,7 +1013,7 @@ public final class JsonParser {
                                 case '7':
                                 case '8':
                                 case '9':
-                                    numberExp = numberExp * 10 + (c - '0');
+                                    number.setExp(number.exp() * 10 + (c - '0'));
                                     currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
                                     break _next_char;
                                 case 0x09:
@@ -848,7 +1043,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* 'true' value - the rest */
+                        /* 'true' value - the web */
                         case LEXEMA_TRUE_STARTED_T: {
                             switch (c) {
                                 case 'r':
@@ -888,7 +1083,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* 'false' value - the rest */
+                        /* 'false' value - the web */
                         case LEXEMA_FALSE_STARTED_F: {
                             switch (c) {
                                 case 'a':
@@ -938,7 +1133,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* 'null' value - the rest */
+                        /* 'null' value - the web */
                         case LEXEMA_NULL_STARTED_N: {
                             switch (c) {
                                 case 'u':
@@ -1034,14 +1229,16 @@ public final class JsonParser {
         lnr.onError(error, position);
     }
 
-    private void setNumber() {
+    private static void setNumber(final MutableJsonNumber number,
+                                  final int numberMinuses,
+                                  final int numberMantissaExp) {
         if ((numberMinuses & 2) != 0) {
-            numberMantissa = -numberMantissa;
+            number.setMantissa(-number.mantissa());
         }
         if ((numberMinuses & 1) != 0) {
-            numberExp = -numberExp;
+            number.setExp(-number.exp());
         }
-        numberExp = numberExp + numberMantissaExp;
+        number.setExp(number.exp() + numberMantissaExp);
     }
 
     private int onCurlyBracketLeft(final JsonParserListener lnr, final int lexemaPosition) {
@@ -1258,7 +1455,7 @@ public final class JsonParser {
     }
 
     private int onNumber(final JsonParserListener lnr, final int lexemaPosition) {
-        setNumber();
+        setNumber(number, numberMinuses, numberMantissaExp);
 
         final int currentScope = peekScope();
 
@@ -1444,7 +1641,7 @@ public final class JsonParser {
                     case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART:
                     case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART:
                     case LEXEMA_NUMBER_STARTED_E_VALUE:
-                        setNumber(); // try to apply the number
+                        setNumber(number, numberMinuses, numberMantissaExp); // try to apply the number
                         lnr.onNumberValue(number);
                         popScope();
                         break;

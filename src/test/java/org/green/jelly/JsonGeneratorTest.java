@@ -1,18 +1,18 @@
 /**
  * MIT License
- *
+ * <p>
  * Copyright (c) 2018 Anatoly Gudkov
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,8 +24,10 @@
 package org.green.jelly;
 
 import java.math.BigDecimal;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
 public class JsonGeneratorTest {
@@ -90,13 +92,13 @@ public class JsonGeneratorTest {
 
         // simple strings
         final String[] strings = new String[]{
-            "",
-            "a",
-            "12",
-            "test",
-            "a b c",
-            "test  test  test  test  test",
-            "test\\/\\\\'\"\b\t\n\f\r\u0004\u0014\u0145\u2300\u2028\u2029test"
+                "",
+                "a",
+                "12",
+                "test",
+                "a b c",
+                "test  test  test  test  test",
+                "test\\/\\\\'\"\b\t\n\f\r\u0004\u0014\u0145\u2300\u2028\u2029test"
         };
         // unescaping
         for (final String string : strings) {
@@ -122,36 +124,36 @@ public class JsonGeneratorTest {
         generator.setOutput(writer);
 
         final BigDecimal[] numbers = new BigDecimal[]{
-            new BigDecimal(Long.MIN_VALUE),
-            new BigDecimal(Double.toString(Double.MIN_VALUE)),
-            new BigDecimal(Float.toString(Float.MIN_VALUE)),
-            new BigDecimal("-1034567770766.0001"),
-            new BigDecimal("-1034567770766"),
-            new BigDecimal("-00234.6783456789"),
-            new BigDecimal("-0023400"),
-            new BigDecimal("-4.000000123e4"),
-            new BigDecimal("-0.123e-15"),
-            new BigDecimal("-0.123e+10"),
-            new BigDecimal("-0.123e-10"),
-            new BigDecimal("-0.005000000000000"),
-            new BigDecimal("0e0"),
-            new BigDecimal("0"),
-            new BigDecimal("-0.0"),
-            new BigDecimal("0.0"),
-            new BigDecimal("0.005000000000000"),
-            new BigDecimal("0.0000000000000001"),
-            new BigDecimal("0.123E-10"),
-            new BigDecimal("+0.123E+10"),
-            new BigDecimal("0.123E-15"),
-            new BigDecimal("4.000000123E+4"),
-            new BigDecimal("14.000000123"),
-            new BigDecimal("+0023400"),
-            new BigDecimal("00234.6783456789"),
-            new BigDecimal("1034567770766"),
-            new BigDecimal("+1034567770766.0001"),
-            new BigDecimal(Float.toString(Float.MAX_VALUE)),
-            new BigDecimal(Double.toString(Double.MAX_VALUE)),
-            new BigDecimal(Long.MAX_VALUE)
+                new BigDecimal(Long.MIN_VALUE),
+                new BigDecimal(Double.toString(Double.MIN_VALUE)),
+                new BigDecimal(Float.toString(Float.MIN_VALUE)),
+                new BigDecimal("-1034567770766.0001"),
+                new BigDecimal("-1034567770766"),
+                new BigDecimal("-00234.6783456789"),
+                new BigDecimal("-0023400"),
+                new BigDecimal("-4.000000123e4"),
+                new BigDecimal("-0.123e-15"),
+                new BigDecimal("-0.123e+10"),
+                new BigDecimal("-0.123e-10"),
+                new BigDecimal("-0.005000000000000"),
+                new BigDecimal("0e0"),
+                new BigDecimal("0"),
+                new BigDecimal("-0.0"),
+                new BigDecimal("0.0"),
+                new BigDecimal("0.005000000000000"),
+                new BigDecimal("0.0000000000000001"),
+                new BigDecimal("0.123E-10"),
+                new BigDecimal("+0.123E+10"),
+                new BigDecimal("0.123E-15"),
+                new BigDecimal("4.000000123E+4"),
+                new BigDecimal("14.000000123"),
+                new BigDecimal("+0023400"),
+                new BigDecimal("00234.6783456789"),
+                new BigDecimal("1034567770766"),
+                new BigDecimal("+1034567770766.0001"),
+                new BigDecimal(Float.toString(Float.MAX_VALUE)),
+                new BigDecimal(Double.toString(Double.MAX_VALUE)),
+                new BigDecimal(Long.MAX_VALUE)
         };
 
         for (final BigDecimal number : numbers) {
@@ -222,7 +224,7 @@ public class JsonGeneratorTest {
         generator.endArray();
         generator.eoj();
         assertEquals("[100,200,true,false,null,\"\\test\"]",
-            writer.output().toString());
+                writer.output().toString());
 
         // inner arrays
         writer.output().setLength(0);
@@ -256,7 +258,7 @@ public class JsonGeneratorTest {
         generator.endArray();
         generator.eoj();
         assertEquals("[[100,200],[[{},{},{}],[],[]],[],[true,false],null,\"\\test\"]",
-            writer.output().toString());
+                writer.output().toString());
     }
 
 
@@ -294,8 +296,8 @@ public class JsonGeneratorTest {
         generator.endObject();
         generator.eoj();
         assertEquals("{\"prop1\":100,\"prop2\":200,\"prop3\":true,\"prop4\":false,"
-            + "\"prop5\":null,\"prop6\":[\"\\test1\",\"\\test2\",\"\\test3\"]}",
-            writer.output().toString());
+                        + "\"prop5\":null,\"prop6\":[\"\\test1\",\"\\test2\",\"\\test3\"]}",
+                writer.output().toString());
 
         // inner objects
         writer.output().setLength(0);
@@ -331,8 +333,8 @@ public class JsonGeneratorTest {
         generator.endObject();
         generator.eoj();
         assertEquals("{\"prop1\":{},\"prop2\":200,\"prop3\":{\"prop3_1\":true,\"prop3_2\":false},"
-            + "\"prop4\":false,\"prop5\":null,\"prop6\":{\"prop6_1\":{\"prop6_1_1\":"
-            + "[\"\\test1\",\"\\test2\",\"\\test3\"]}}}",
-            writer.output().toString());
+                        + "\"prop4\":false,\"prop5\":null,\"prop6\":{\"prop6_1\":{\"prop6_1_1\":"
+                        + "[\"\\test1\",\"\\test2\",\"\\test3\"]}}}",
+                writer.output().toString());
     }
 }

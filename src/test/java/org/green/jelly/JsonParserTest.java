@@ -1,18 +1,18 @@
 /**
  * MIT License
- *
+ * <p>
  * Copyright (c) 2018 Anatoly Gudkov
- *
+ * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- *
+ * <p>
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- *
+ * <p>
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -24,6 +24,7 @@
 package org.green.jelly;
 
 import java.math.BigDecimal;
+
 import org.green.jelly.JsonEvents.FalseValue;
 import org.green.jelly.JsonEvents.JsonEnd;
 import org.green.jelly.JsonEvents.JsonStart;
@@ -34,13 +35,60 @@ import org.green.jelly.JsonEvents.ObjectStart;
 import org.green.jelly.JsonEvents.StringValue;
 import org.green.jelly.JsonEvents.TrueValue;
 import org.junit.Assert;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+
 import org.junit.Test;
 
 public class JsonParserTest {
+    @Test
+    public void parseNumber() {
+        final String[] numbers = new String[]{
+                Long.toString(Long.MIN_VALUE),
+                Double.toString(Double.MIN_VALUE),
+                Float.toString(Float.MIN_VALUE),
+                "-1034567770766.0001",
+                "-1034567770766",
+                "-00234.6783456789",
+                "-0023400",
+                "-4.000000123e4",
+                "-0.123e-15",
+                "-0.123e+10",
+                "-0.123e-10",
+                "-0.005000000000000",
+                "0e0",
+                "0",
+                "-0.0",
+                "0.0",
+                "0.005000000000000",
+                "0.0000000000000001",
+                "0.123E-10",
+                "+0.123E+10",
+                "0.123E-15",
+                "4.000000123E+4",
+                "14.000000123",
+                "+0023400",
+                "00234.6783456789",
+                "1034567770766",
+                "+1034567770766.0001",
+                Float.toString(Float.MAX_VALUE),
+                Double.toString(Double.MAX_VALUE),
+                Long.toString(Long.MAX_VALUE)
+        };
+
+        final MutableJsonNumber result = new MutableJsonNumber();
+
+        for (final String number : numbers) {
+            JsonParser.parseNumber(number, result);
+
+            final BigDecimal parsed = BigDecimal.valueOf(result.mantissa(), -result.exp());
+            final BigDecimal expected = new BigDecimal(number);
+            assertEquals(expected, parsed);
+        }
+    }
 
     @Test
     public void stringTest() {
@@ -184,36 +232,36 @@ public class JsonParserTest {
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         final String[] numbers = new String[]{
-            Long.toString(Long.MIN_VALUE),
-            Double.toString(Double.MIN_VALUE),
-            Float.toString(Float.MIN_VALUE),
-            "-1034567770766.0001",
-            "-1034567770766",
-            "-00234.6783456789",
-            "-0023400",
-            "-4.000000123e4",
-            "-0.123e-15",
-            "-0.123e+10",
-            "-0.123e-10",
-            "-0.005000000000000",
-            "0e0",
-            "0",
-            "-0.0",
-            "0.0",
-            "0.005000000000000",
-            "0.0000000000000001",
-            "0.123E-10",
-            "+0.123E+10",
-            "0.123E-15",
-            "4.000000123E+4",
-            "14.000000123",
-            "+0023400",
-            "00234.6783456789",
-            "1034567770766",
-            "+1034567770766.0001",
-            Float.toString(Float.MAX_VALUE),
-            Double.toString(Double.MAX_VALUE),
-            Long.toString(Long.MAX_VALUE)
+                Long.toString(Long.MIN_VALUE),
+                Double.toString(Double.MIN_VALUE),
+                Float.toString(Float.MIN_VALUE),
+                "-1034567770766.0001",
+                "-1034567770766",
+                "-00234.6783456789",
+                "-0023400",
+                "-4.000000123e4",
+                "-0.123e-15",
+                "-0.123e+10",
+                "-0.123e-10",
+                "-0.005000000000000",
+                "0e0",
+                "0",
+                "-0.0",
+                "0.0",
+                "0.005000000000000",
+                "0.0000000000000001",
+                "0.123E-10",
+                "+0.123E+10",
+                "0.123E-15",
+                "4.000000123E+4",
+                "14.000000123",
+                "+0023400",
+                "00234.6783456789",
+                "1034567770766",
+                "+1034567770766.0001",
+                Float.toString(Float.MAX_VALUE),
+                Double.toString(Double.MAX_VALUE),
+                Long.toString(Long.MAX_VALUE)
         };
 
         for (final String number : numbers) {
@@ -231,11 +279,11 @@ public class JsonParserTest {
         }
 
         final String[][] splittedNumbers = new String[][]{
-            new String[]{"1", "2"},
-            new String[]{"+", "123"},
-            new String[]{"-", "123.45"},
-            new String[]{"-", "123", ".", "45"},
-            new String[]{"+", "1", "2", "3", ".", "4", "5", "e", "+", "2"}
+                new String[]{"1", "2"},
+                new String[]{"+", "123"},
+                new String[]{"-", "123.45"},
+                new String[]{"-", "123", ".", "45"},
+                new String[]{"+", "1", "2", "3", ".", "4", "5", "e", "+", "2"}
         };
 
         final StringBuilder fullNumber = new StringBuilder();
@@ -580,23 +628,23 @@ public class JsonParserTest {
         final MutableLong result = new MutableLong(0);
 
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(
-            new JsonParserListenerAdaptor() {
-                @Override
-                public boolean onArrayEnded() {
-                    return false;
-                }
+                new JsonParserListenerAdaptor() {
+                    @Override
+                    public boolean onArrayEnded() {
+                        return false;
+                    }
 
-                @Override
-                public boolean onNumberValue(final JsonNumber number) {
-                    result.value = result.value + number.mantissa();
-                    return false;
-                }
+                    @Override
+                    public boolean onNumberValue(final JsonNumber number) {
+                        result.value = result.value + number.mantissa();
+                        return false;
+                    }
 
-                @Override
-                public boolean onArrayStarted() {
-                    return false;
+                    @Override
+                    public boolean onArrayStarted() {
+                        return false;
+                    }
                 }
-            }
         );
 
         JsonParser.Next next;

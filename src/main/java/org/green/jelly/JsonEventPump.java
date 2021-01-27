@@ -24,8 +24,8 @@
 package org.green.jelly;
 
 public class JsonEventPump implements JsonParserListener {
-    protected final JsonGenerator output;
     protected final StringBuilder memberName = new StringBuilder();
+    protected final JsonGenerator output;
 
     public JsonEventPump(final JsonBufferedWriter output) {
         this.output = new JsonGenerator(output);
