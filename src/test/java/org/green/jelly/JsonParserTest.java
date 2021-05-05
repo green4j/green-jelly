@@ -672,6 +672,25 @@ public class JsonParserTest {
         assertEquals(550, result.value);
     }
 
+    @Test
+    public void testOnParsingInTheGivenBounds() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        parser.parse("123456789{\"test_member\": \"test_value\"}abcdefgh", 9, 29);
+        parser.eoj();
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("test_member");
+        expectedEvents.onStringValue("test_value");
+        expectedEvents.onObjectEnded();
+        expectedEvents.onJsonEnded();
+
+        assertEquals(expectedEvents, events);
+    }
+
     class MutableLong {
         long value;
 
