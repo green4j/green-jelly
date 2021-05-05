@@ -614,7 +614,7 @@ public final class JsonParser {
                                     c = data.charAt(start + pos);
                                     switch (c) {
                                         case '"':
-                                            stringBuilder.append(data, startStringPos, pos - startStringPos);
+                                            stringBuilder.append(data, start + startStringPos, pos - startStringPos);
                                             currentLexState = LEXEMA_STRING_READY;
                                             final int r = onStringReady(lnr, currentLexPos);
                                             if (r == 0) {
