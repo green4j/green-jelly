@@ -526,9 +526,9 @@ public final class JsonParser {
                             }
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'true' value
-                                if (data.charAt(++pos) == 'r'
-                                        && data.charAt(++pos) == 'u'
-                                        && data.charAt(++pos) == 'e') {
+                                if (data.charAt(++pos + start) == 'r'
+                                        && data.charAt(++pos + start) == 'u'
+                                        && data.charAt(++pos + start) == 'e') {
 
                                     currentLexState = LEXEMA_TRUE_READY;
                                     final int r = onTrue(lnr, currentLexPos);
@@ -554,10 +554,10 @@ public final class JsonParser {
                             }
                             currentLexPos = pos;
                             if (len - pos > 4) { // try to read the whole 'false' value
-                                if (data.charAt(++pos) == 'a'
-                                        && data.charAt(++pos) == 'l'
-                                        && data.charAt(++pos) == 's'
-                                        && data.charAt(++pos) == 'e') {
+                                if (data.charAt(++pos + start) == 'a'
+                                        && data.charAt(++pos + start) == 'l'
+                                        && data.charAt(++pos + start) == 's'
+                                        && data.charAt(++pos + start) == 'e') {
 
                                     currentLexState = LEXEMA_FALSE_READY;
                                     final int r = onFalse(lnr, currentLexPos);
@@ -583,9 +583,9 @@ public final class JsonParser {
                             }
                             currentLexPos = pos;
                             if (len - pos > 3) { // try to read the whole 'null' value
-                                if (data.charAt(++pos) == 'u'
-                                        && data.charAt(++pos) == 'l'
-                                        && data.charAt(++pos) == 'l') {
+                                if (data.charAt(++pos + start) == 'u'
+                                        && data.charAt(++pos + start) == 'l'
+                                        && data.charAt(++pos + start) == 'l') {
 
                                     currentLexState = LEXEMA_NULL_READY;
                                     final int r = onNull(lnr, currentLexPos);
