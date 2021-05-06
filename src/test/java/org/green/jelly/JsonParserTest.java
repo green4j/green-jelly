@@ -673,7 +673,7 @@ public class JsonParserTest {
     }
 
     @Test
-    public void testOnParsingInTheGivenBounds() {
+    public void testOnParsingStringTheGivenBounds() {
         final JsonEvents events = new JsonEvents();
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
@@ -685,6 +685,46 @@ public class JsonParserTest {
         expectedEvents.onObjectStarted();
         expectedEvents.onObjectMember("test_member");
         expectedEvents.onStringValue("test_value");
+        expectedEvents.onObjectEnded();
+        expectedEvents.onJsonEnded();
+
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testOnParsingBooleanInTheGivenBounds() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        parser.parse("123456789{\"test_true_member\": true, \"test_false_member\": false}abcdefgh", 9, 54);
+        parser.eoj();
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("test_true_member");
+        expectedEvents.onTrueValue();
+        expectedEvents.onObjectMember("test_false_member");
+        expectedEvents.onFalseValue();
+        expectedEvents.onObjectEnded();
+        expectedEvents.onJsonEnded();
+
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testOnParsingNullInTheGivenBounds() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        parser.parse("123456789{\"test_null_member\": null}abcdefgh", 9, 26);
+        parser.eoj();
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("test_null_member");
+        expectedEvents.onNullValue();
         expectedEvents.onObjectEnded();
         expectedEvents.onJsonEnded();
 
