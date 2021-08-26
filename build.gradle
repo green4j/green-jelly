@@ -17,7 +17,7 @@ repositories {
 
 dependencies {
     checkstyle 'com.puppycrawl.tools:checkstyle:8.12'
-    testCompile 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.12'
 }
 
 checkstyle {
@@ -47,16 +47,4 @@ javadoc {
     }
 }
 
-jacocoTestReport {
-    reports {
-        xml.enabled true
-        html.enabled true
-    }
-}
-
 check.dependsOn jacocoTestReport
-
-wrapper {
-    gradleVersion = '6.0.1'
-    distributionType = 'ALL'
-}

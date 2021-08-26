@@ -732,7 +732,7 @@ public final class JsonParser {
                     _next_char:
                     switch (currentLexState) {
 
-                        /* string value - the web */
+                        /* string value - the rest */
                         case LEXEMA_STRING_STARTED: {
                             final int startStringPos = pos;
                             while (true) {
@@ -845,7 +845,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* number value - the web */
+                        /* number value - the rest */
                         case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
@@ -1043,7 +1043,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* 'true' value - the web */
+                        /* 'true' value - the rest */
                         case LEXEMA_TRUE_STARTED_T: {
                             switch (c) {
                                 case 'r':
@@ -1083,7 +1083,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* 'false' value - the web */
+                        /* 'false' value - the rest */
                         case LEXEMA_FALSE_STARTED_F: {
                             switch (c) {
                                 case 'a':
@@ -1133,7 +1133,7 @@ public final class JsonParser {
                             }
                         }
 
-                        /* 'null' value - the web */
+                        /* 'null' value - the rest */
                         case LEXEMA_NULL_STARTED_N: {
                             switch (c) {
                                 case 'u':
