@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
-<!DOCTYPE module PUBLIC "-//Puppy Crawl//DTD Check Configuration 1.2//EN"
-        "http://www.puppycrawl.com/dtds/configuration_1_2.dtd">
+<!DOCTYPE module PUBLIC "-//Puppy Crawl//DTD Check Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
 <module name="Checker">
     <module name="SuppressionFilter">
-        <property name="file" value="config/checkstyle/suppressions.xml"/>
+        <property name="file" value="${config_loc}/suppressions.xml"/>
     </module>
 
     <module name="SuppressWarningsFilter"/>
@@ -17,15 +17,20 @@
         <property name="eachLine" value="true"/>
     </module>
 
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^[ \t]*\*.*@.*$"/>
+    </module>
+
     <module name="TreeWalker">
         <property name="tabWidth" value="4"/>
+
         <property name="severity" value="error"/>
 
         <module name="SuppressWarningsHolder"/>
 
         <module name="Indentation">
             <property name="lineWrappingIndentation" value="8"/>
-            <property name="forceStrictCondition" value="false"/>
         </module>
 
         <module name="ConstantName"/>
@@ -60,11 +65,6 @@
 
         <module name="UnusedImports"/>
 
-        <module name="LineLength">
-            <property name="max" value="120"/>
-            <property name="ignorePattern" value="^[ \t]*\*.*@.*$"/>
-        </module>
-
         <module name="MethodLength">
             <property name="tokens" value="METHOD_DEF"/>
             <property name="max" value="100"/>
@@ -77,7 +77,7 @@
         <module name="NoWhitespaceBefore"/>
 
         <module name="WhitespaceAfter">
-            <property name="tokens" value="COMMA, SEMI, LITERAL_IF, LITERAL_ELSE, LITERAL_WHILE, LITERAL_DO, LITERAL_FOR, DO_WHILE, TYPECAST"/>
+            <property name="tokens" value="COMMA, SEMI, LITERAL_IF, LITERAL_ELSE, LITERAL_WHILE, LITERAL_DO, LITERAL_FOR, DO_WHILE"/>
         </module>
 
         <module name="NoWhitespaceAfter">
@@ -94,7 +94,7 @@
         <module name="OperatorWrap">
             <property name="option" value="NL"/>
             <property name="tokens"
-             value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR,
+                      value="BAND, BOR, BSR, BXOR, DIV, EQUAL, GE, GT, LAND, LE, LITERAL_INSTANCEOF, LOR,
                     LT, MINUS, MOD, NOT_EQUAL, PLUS, QUESTION, SL, SR, STAR, METHOD_REF "/>
         </module>
 
@@ -119,7 +119,7 @@
         <module name="RightCurly">
             <property name="id" value="RightCurlySame"/>
             <property name="tokens"
-             value="LITERAL_TRY, LITERAL_CATCH, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE,
+                      value="LITERAL_TRY, LITERAL_CATCH, LITERAL_FINALLY, LITERAL_IF, LITERAL_ELSE,
                     LITERAL_DO"/>
         </module>
 
@@ -127,7 +127,7 @@
             <property name="id" value="RightCurlyAlone"/>
             <property name="option" value="alone"/>
             <property name="tokens"
-             value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, STATIC_INIT,
+                      value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, STATIC_INIT,
                     INSTANCE_INIT"/>
         </module>
 
@@ -182,5 +182,7 @@
             <property name="illegalPattern" value="true"/>
             <property name="message" value="Trailing whitespace"/>
         </module>
+
+        <module name="JavadocMethod"/>
     </module>
 </module>

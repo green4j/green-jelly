@@ -1,7 +1,7 @@
 /**
  * MIT License
  * <p>
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
+package io.github.green4j.jelly;
 
 public final class JsonGenerator {
 
@@ -514,8 +514,10 @@ public final class JsonGenerator {
         writeLongValueToEndOfTheFrame(out.append(size), mts, sgn);
     }
 
-    private static void writeLongValueToEndOfTheFrame(final JsonBufferedWriter.Frame buf,
-                                                      final long mantissa, final char sign) {
+    private static void writeLongValueToEndOfTheFrame(
+            final JsonBufferedWriter.Frame buf,
+            final long mantissa,
+            final char sign) {
 
         long mts = mantissa;
         int currentCharIndex = buf.length();
@@ -552,8 +554,10 @@ public final class JsonGenerator {
         }
     }
 
-    private static void writeDecimalNumber(final JsonBufferedWriter out,
-                                           final long mantissa, final int exp) {
+    private static void writeDecimalNumber(
+            final JsonBufferedWriter out,
+            final long mantissa,
+            final int exp) {
 
         long mts = mantissa;
         int e = exp;

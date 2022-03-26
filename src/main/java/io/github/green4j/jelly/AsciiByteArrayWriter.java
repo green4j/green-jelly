@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,9 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
-
-import static org.green.jelly.JsonGenerator.HEX_DIGITS;
+package io.github.green4j.jelly;
 
 public final class AsciiByteArrayWriter implements JsonBufferedWriter {
 
@@ -141,22 +139,22 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
         if (c < 0x800) { // 2 bytes
             array[charIndex++] = (byte) '0';
             array[charIndex++] = (byte) '0';
-            array[charIndex++] = (byte) HEX_DIGITS[c >>> 4 & 0x000f];
-            array[charIndex++] = (byte) HEX_DIGITS[c & 0x000f];
+            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
+            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
             return;
         }
         if (c < 0x8000) { // 3 bytes
             array[charIndex++] = (byte) '0';
-            array[charIndex++] = (byte) HEX_DIGITS[c >>> 8 & 0x000f];
-            array[charIndex++] = (byte) HEX_DIGITS[c >>> 4 & 0x000f];
-            array[charIndex++] = (byte) HEX_DIGITS[c & 0x000f];
+            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 8 & 0x000f];
+            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
+            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
             return;
         }
         // 4 bytes
-        array[charIndex++] = (byte) HEX_DIGITS[c >>> 12 & 0x000f];
-        array[charIndex++] = (byte) HEX_DIGITS[c >>> 8 & 0x000f];
-        array[charIndex++] = (byte) HEX_DIGITS[c >>> 4 & 0x000f];
-        array[charIndex++] = (byte) HEX_DIGITS[c & 0x000f];
+        array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 12 & 0x000f];
+        array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 8 & 0x000f];
+        array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
+        array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
     }
 
     @Override

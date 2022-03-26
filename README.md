@@ -97,7 +97,7 @@ public interface JsonNumber {
 Feel free to use any type of arithmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, out-of-the-box `java.math.BigDecimal`, which a bit slow and allocates new memory, etc. An example of `java.math.BigDecimal` using:
 
 ```java
-JsonNumber number = ...
+JsonNumber number = ...ш9ро
 BigDecimal decimal = BigDecimal.valueOf(number.mantissa(), -number.exp());
 ```
 Sometimes vendor sends numbers as string values. To parse such values you can use static `JsonParser.parseNumber` method:
@@ -189,10 +189,10 @@ import com.google.gson.stream.JsonToken;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.concurrent.TimeUnit;
-import org.green.jelly.FlyweightStringBuilder;
-import org.green.jelly.JsonNumber;
-import org.green.jelly.JsonParser;
-import org.green.jelly.JsonParserListenerAdaptor;
+import FlyweightStringBuilder;
+import JsonNumber;
+import JsonParser;
+import JsonParserListenerAdaptor;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;

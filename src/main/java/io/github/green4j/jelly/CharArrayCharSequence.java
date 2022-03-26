@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,11 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
+package io.github.green4j.jelly;
 
-public interface JsonNumber {
+public class CharArrayCharSequence implements CharSequence {
+    private final char[] chars;
+    private int length;
 
-    long mantissa();
+    public CharArrayCharSequence(final int size) {
+        this.chars = new char[size];
+    }
 
-    int exp();
+    public CharArrayCharSequence(final char[] chars, final int length) {
+        this.chars = chars;
+        this.length = length;
+    }
+
+    public char[] getChars() {
+        return chars;
+    }
+
+    public void setLength(final int length) {
+        this.length = length;
+    }
+
+    @Override
+    public int length() {
+        return length;
+    }
+
+    @Override
+    public char charAt(final int index) {
+        if (index >= length) {
+            throw new ArrayIndexOutOfBoundsException(index + " with length: " + length);
+        }
+        return chars[index];
+    }
+
+    @Override
+    public CharSequence subSequence(final int start, final int end) {
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
 }

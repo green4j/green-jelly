@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,19 +21,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
+package io.github.green4j.jelly;
 
-public class CharArrayWriter implements JsonBufferedWriter {
+import java.io.IOException;
+
+public final class AppendableWriter<T extends Appendable> implements JsonBufferedWriter {
 
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
-            array[frameStart + index] = c;
+            frameArray[index] = c;
         }
 
         @Override
         public char charAt(final int index) {
-            return array[frameStart + index];
+            return frameArray[index];
         }
 
         @Override
@@ -43,121 +45,118 @@ public class CharArrayWriter implements JsonBufferedWriter {
 
         @Override
         public int length() {
-            return frameSize;
+            return Math.abs(frameSize);
         }
 
         @Override
         public String toString() {
-            return new String(array, frameStart, frameSize);
+            return new String(frameArray, 0, length());
         }
     };
 
-    private char[] array;
-    private int start;
-    private int length;
-
-    private int frameStart;
+    private char[] frameArray = new char[32];
     private int frameSize;
 
-    public CharArrayWriter() {
+    private T output;
+
+    public AppendableWriter() {
     }
 
-    public CharArrayWriter(final int initialSize) {
-        this(new char[initialSize]);
+    public AppendableWriter(final T output) {
+        set(output);
     }
 
-    public CharArrayWriter(final char[] array) {
-        this(array, 0);
+    public void set(final T output) {
+        this.output = output;
     }
 
-    public CharArrayWriter(final char[] array, final int start) {
-        set(array, start);
-    }
-
-    public void set(final char[] array) {
-        set(array, 0);
-    }
-
-    public void set(final char[] array, final int start) {
-        assert array.length > start;
-
-        this.array = array;
-        this.start = start;
-        this.length = 0;
-    }
-
-    public char[] array() {
-        return array;
-    }
-
-    public int start() {
-        return start;
-    }
-
-    public int length() {
-        return length;
-    }
-
-    public void clear() {
-        length = 0;
+    public T output() {
+        return output;
     }
 
     @Override
     public Frame append(final int size) {
         assert size > 0;
 
-        makeSureRoomSize(size);
-        frameStart = start + length;
-        frameSize = size;
-        length += size;
+        try {
+            tryPushFrame();
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
+        makeSureFrameSize(size);
+        frameSize = -size;
         return frame;
     }
 
     @Override
     public void append(final char c) {
-        assert array != null;
+        assert output != null;
 
-        makeSureRoomSize(1);
-        array[start + length] = c;
-        length++;
+        try {
+            tryPushFrame();
+            output.append(c);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void append(final CharSequence data) {
-        append(data, 0, data.length());
+        assert output != null;
+
+        try {
+            tryPushFrame();
+            output.append(data);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public void append(final CharSequence data, final int start, final int len) {
-        assert array != null;
+        assert output != null;
 
-        makeSureRoomSize(len);
-        for (int i = start; i < len; i++) {
-            array[start + length] = data.charAt(i);
+        try {
+            tryPushFrame();
+            output.append(data, start, start + len);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
         }
-        length += len;
     }
 
     @Override
     public void flush() {
+        if (output == null) {
+            return;
+        }
+        try {
+            tryPushFrame();
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private void makeSureRoomSize(final int roomSize) {
-        final int delta = array.length - (start + length + roomSize);
+    private void tryPushFrame() throws IOException {
+        if (frameSize < 0) {
+            output.append(frame);
+            frameSize = -frameSize;
+        }
+    }
+
+    private void makeSureFrameSize(final int roomSize) {
+        final int delta = frameArray.length - roomSize;
         if (delta < 0) {
-            final int newSize = Math.max(roomSize, array.length - start) << 1;
+            final int newSize = Math.max(roomSize, frameArray.length) << 1;
             final char[] newArray = new char[newSize];
-            System.arraycopy(array, start, newArray, 0, length);
-            array = newArray;
-            start = 0;
+            frameArray = newArray;
         }
     }
 
     @Override
     public String toString() {
-        if (array == null) {
+        if (output == null) {
             return "null";
         }
-        return new String(array, start, length);
+        return output.toString();
     }
 }

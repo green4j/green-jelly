@@ -1,7 +1,7 @@
 /**
  * MIT License
  * <p>
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
+package io.github.green4j.jelly;
 
 /**
  * Parses JSON character sequence.
@@ -1229,9 +1229,10 @@ public final class JsonParser {
         lnr.onError(error, position);
     }
 
-    private static void setNumber(final MutableJsonNumber number,
-                                  final int numberMinuses,
-                                  final int numberMantissaExp) {
+    private static void setNumber(
+            final MutableJsonNumber number,
+            final int numberMinuses,
+            final int numberMantissaExp) {
         if ((numberMinuses & 2) != 0) {
             number.setMantissa(-number.mantissa());
         }

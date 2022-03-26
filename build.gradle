@@ -1,34 +1,116 @@
+/**
+ * MIT License
+ *
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
     id 'checkstyle'
     id 'jacoco'
 }
 
-defaultTasks 'clean', 'build'
-
 group = projectGroup
 version = projectVersion
-sourceCompatibility = projectSourceCompatibility
-targetCompatibility = projectSourceCompatibility
+
+defaultTasks 'clean', 'build'
+
+def getConfigProperty(final String propertyName) {
+    String value = project.findProperty(propertyName)
+    if (!value) {
+        value = System.getenv(propertyName)
+        if (!value) {
+            return null
+        }
+    }
+    return value.trim()
+}
+
+ext {
+    jellySrcJavaVersion = JavaVersion.toVersion(srcJavaVersion)
+
+    isRelease = !version.endsWith('-SNAPSHOT')
+
+    ossrhReleasesRepoUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
+    ossrhSnapshotsRepoUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
+    ossrhUsername = getConfigProperty('OSSRH_USERNAME')
+    ossrhPassword = getConfigProperty('OSSRH_PASSWORD')
+
+    signingKey = getConfigProperty('SIGNING_GPG_SECRET_KEY')    // ascii-armored secret key
+    signingPassword = getConfigProperty('SIGNING_GPG_PASSWORD') // plain text
+}
+
+def projectPom = {
+    name = projectName
+    // artifactId can be defined here optionally
+    description = 'A minimalistic, GC-free, stream-oriented JSON parser and generator.'
+    url = 'https://github.com/green4j/green-jelly'
+
+    scm {
+        connection = 'scm:git:https://github.com/green4j/green-jelly.git'
+        developerConnection = 'scm:git:https://github.com/green4j/green-jelly.git'
+        url = 'https://github.com/green4j/green-jelly.git'
+    }
+
+    licenses {
+        license {
+            name = 'MIT License'
+            url = 'https://opensource.org/licenses/MIT'
+        }
+    }
+
+    developers {
+        developer {
+            id = 'anatolygudkov'
+            name = 'Anatoly Gudkov'
+            email = 'gudkovanatoly@hotmail.com'
+            url = 'https://github.com/anatolygudkov'
+        }
+    }
+}
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
 dependencies {
-    checkstyle 'com.puppycrawl.tools:checkstyle:8.12'
-    testImplementation 'junit:junit:4.12'
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${jupiterVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${jupiterVersion}"
+    checkstyle "com.puppycrawl.tools:checkstyle:${checkstyleVersion}"
 }
 
 checkstyle {
-    toolVersion = '8.12'
+    toolVersion = "${checkstyleVersion}"
 }
 
-test {
-    testLogging {
-        showStandardStreams = true
-        exceptionFormat = 'full'
-    }
+compileJava {
+    sourceCompatibility = jellySrcJavaVersion
+    targetCompatibility = jellySrcJavaVersion
+
+    options.compilerArgs.addAll(['-Xlint:all', '-Werror']) // enable all warnings and treat them as errors
+    options.encoding = 'UTF-8'
+    options.deprecation = true
 }
 
 jar {
@@ -37,14 +119,79 @@ jar {
                    'Implementation-Version': projectVersion,
                    'Implementation-Vendor' : projectAuthor
     }
+    includeEmptyDirs = false
 }
 
-javadoc {
-    title = "<h1>$projectName</h1>"
-    options.bottom = "<i>Copyright &#169; 2018 $projectAuthor.</i>"
-    if (JavaVersion.current() == JavaVersion.VERSION_1_10) {
-        options.addBooleanOption 'html5', true
+test {
+    useJUnitPlatform()
+
+    testLogging {
+        events 'skipped', 'failed'
+        showStandardStreams = true
+        exceptionFormat = 'full'
+        afterSuite { desc, result ->
+            if (!desc.parent) {
+                println "Results: ${result.resultType} (${result.testCount} tests, " +
+                        "${result.successfulTestCount} successes, " +
+                        "${result.failedTestCount} failures, " +
+                        "${result.skippedTestCount} skipped)"
+            }
+        }
     }
 }
 
-check.dependsOn jacocoTestReport
+check {
+    dependsOn jacocoTestReport
+}
+
+javadoc {
+    title = "<h1>${projectName}</h1>"
+    options.bottom = "<i>Copyright &#169; 2018-2022 ${projectAuthor}. All Rights Reserved.</i>"
+    options.encoding = 'UTF-8'
+    options.docEncoding = 'UTF-8'
+    options.charSet = 'UTF-8'
+    if (JavaVersion.current().isJava10Compatible()) {
+        options.addBooleanOption 'html5', true
+    }
+    options.addStringOption('Xdoclint:all,-missing', '-quiet')
+}
+
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+publishing {
+    publications {
+        greenJelly(MavenPublication) {
+            from components.java
+            pom(projectPom)
+        }
+    }
+
+    repositories {
+        maven {
+            name = 'MavenCentral'
+            url(!isRelease ? ossrhSnapshotsRepoUrl : ossrhReleasesRepoUrl)
+            credentials {
+                username = ossrhUsername
+                password = ossrhPassword
+            }
+        }
+    }
+}
+
+signing {
+    required {
+        isRelease && gradle.taskGraph.hasTask("publish")
+    }
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    sign publishing.publications.greenJelly
+}
+
+wrapper {
+    gradleVersion = '7.4.1'
+    distributionType = 'ALL'
+}

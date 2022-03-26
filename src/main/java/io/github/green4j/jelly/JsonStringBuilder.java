@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
+package io.github.green4j.jelly;
 
 /**
  * This interface presents a container of a string value the parser has parsed.
@@ -54,8 +54,10 @@ public interface JsonStringBuilder extends CharSequence {
     void start(CharSequence data, int position);
 
     /**
-     * Appends next char to the current string value.
-     * @param int - current char
+     * Appends chars to the current string value.
+     * @param data - text of JSON message
+     * @param start - index of the first char
+     * @param len - number of chars to be append
      */
     void append(CharSequence data, int start, int len);
 

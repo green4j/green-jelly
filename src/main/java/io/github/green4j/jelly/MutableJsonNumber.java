@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2018 Anatoly Gudkov
+ * Copyright (c) 2018-2022 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,70 +21,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package org.green.jelly;
+package io.github.green4j.jelly;
 
-public class JsonParserListenerAdaptor implements JsonParserListener {
+public class MutableJsonNumber implements JsonNumber {
+    private long mantissa;
+    private int exp;
 
-    @Override
-    public void onJsonStarted() {
+    public MutableJsonNumber() {
+    }
+
+    public MutableJsonNumber(final long mantissa, final int exp) {
+        set(mantissa, exp);
+    }
+
+    public void set(final long mantissa, final int exp) {
+        setMantissa(mantissa);
+        setExp(exp);
+    }
+
+    public void setMantissa(final long mantissa) {
+        this.mantissa = mantissa;
+    }
+
+    public void setExp(final int exp) {
+        this.exp = exp;
     }
 
     @Override
-    public void onError(final String error, final int position) {
+    public long mantissa() {
+        return mantissa;
     }
 
     @Override
-    public void onJsonEnded() {
+    public int exp() {
+        return exp;
     }
 
-    @Override
-    public boolean onObjectStarted() {
-        return true;
-    }
-
-    @Override
-    public boolean onObjectMember(final CharSequence name) {
-        return true;
-    }
-
-    @Override
-    public boolean onObjectEnded() {
-        return true;
-    }
-
-    @Override
-    public boolean onArrayStarted() {
-        return true;
-    }
-
-    @Override
-    public boolean onArrayEnded() {
-        return true;
-    }
-
-    @Override
-    public boolean onStringValue(final CharSequence data) {
-        return true;
-    }
-
-    @Override
-    public boolean onNumberValue(final JsonNumber number) {
-        return true;
-    }
-
-    @Override
-    public boolean onTrueValue() {
-        return true;
-    }
-
-    @Override
-    public boolean onFalseValue() {
-        return true;
-    }
-
-    @Override
-    public boolean onNullValue() {
-        return true;
+    public String toString() {
+        return mantissa() + "E" + exp();
     }
 
 }
