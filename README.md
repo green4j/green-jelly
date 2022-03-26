@@ -1,6 +1,7 @@
 # Green Jelly
 
 [![Actions Status](https://github.com/green4j/green-jelly/workflows/Build%20CI/badge.svg)](https://github.com/green4j/green-jelly/actions/)
+[![Code Quality: Java](https://img.shields.io/lgtm/grade/java/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/context:java)
 
 GC-free (green) JSON parser/generator library for Java which isn't an object mapper, but aims to be:
 
