@@ -63,11 +63,9 @@ jobs:
         if [[ "${{ github.event.inputs.nextVersion }}" != "CURRENT" ]]
         then
           releaseVersion=${{ steps.prv.outputs.releaseVersion }}
-          echo $releaseVersion
-          echo "git tag v$releaseVersion -m \"Rev tag set to v$releaseVersion\""
-          git tag v$releaseVersion -m "Revision tag v$releaseVersion prepared"
-          git push origin v$releaseVersion
           sed -i "s/projectVersion=$releaseVersion/projectVersion=${{ github.event.inputs.nextVersion }}-SNAPSHOT/" gradle.properties
           git commit -am "[skip actions] Set next snapshot version"
           git push origin
+          git tag v$releaseVersion -m "Revision tag v$releaseVersion prepared"
+          git push origin v$releaseVersion
         fi
