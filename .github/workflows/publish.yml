@@ -69,7 +69,7 @@ jobs:
 
           sed -i "s/projectVersion=$releaseVersion/projectVersion=${{ github.event.inputs.nextVersion }}-SNAPSHOT/" gradle.properties
           git commit -am "[skip actions] Set next snapshot version"
-          echo 'git tag "v$releaseVersion" -m "Rev tag set to v$releaseVersion"'
+          echo "git tag \"v$releaseVersion\" -m \"Rev tag set to v$releaseVersion\""
           git tag "v$releaseVersion" -m, "Rev tag set to $releaseVersion"
           git push origin
         fi
