@@ -1,6 +1,6 @@
 # Green Jelly
 
-[![Actions Status](https://github.com/green4j/green-jelly/workflows/Build%20CI/badge.svg)](https://github.com/green4j/green-jelly/actions/)
+[![Build CI](https://github.com/green4j/green-jelly/actions/workflows/build.yml/badge.svg)](https://github.com/green4j/green-jelly/actions/workflows/build.yml)
 [![Code Quality: Java](https://img.shields.io/lgtm/grade/java/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/context:java)
 [![Total alerts](https://img.shields.io/lgtm/alerts/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/alerts/)
 
