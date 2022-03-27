@@ -17,9 +17,9 @@ jobs:
       run: echo "Next version ${{ github.event.inputs.nextVersion }}"
     - name: Checkout code
       uses: actions/checkout@v3
-    - name: Say something
+    - name: Read current snapshot version
       run: |
-        echo 'Something from Publish CI. Next version "${{ github.event.inputs.nextVersion }}"'          git config user.name github-actions
+        git config user.name github-actions
         git config user.email github-actions@github.com
         git fetch
         versionSnapshot=`grep 'projectVersion=' gradle.properties | sed 's/projectVersion=\([^-]*\)/\1/'`
@@ -38,6 +38,7 @@ jobs:
     - name: Generate release version if required
       if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
       run: |
+        echo "$versionSnapshot"
         versionRelease=`echo $versionSnapshot | sed 's/\([^-]*\)-SNAPSHOT/\1/'`
         sed -i "s/projectVersion=$versionSnapshot/projectVersion=$versionRelease/" gradle.properties
         git commit -am "[skip actions] Generate release version"
