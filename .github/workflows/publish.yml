@@ -3,7 +3,7 @@ name: Publish CI
 on:
   workflow_dispatch:
     inputs:
-      nextVersion:
+      nextVersion: # Next version with the '-SNAPSHOT' suffix will be written to gradle.properties IF NOT SET TO 'CURRENT' while running
         description: 'Next Version'
         default: 'CURRENT'
         required: true
@@ -52,14 +52,12 @@ jobs:
         distribution: 'zulu'
         java-version: 8
     - name: Test and publish to Maven Central
-      # run: ./gradlew test publish
-      run: echo "./gradlew test publish"
+      run: ./gradlew test publish
       env:
-        SONATYPE_REPOSITORY:      ${{ secrets.SONATYPE_REPOSITORY }}
-        SONATYPE_NEXUS_USERNAME:  ${{ secrets.SONATYPE_NEXUS_USERNAME }}
-        SONATYPE_NEXUS_PASSWORD:  ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
-        SIGNING_PRIVATE_KEY:      ${{ secrets.SIGNING_PRIVATE_KEY }}
-        SIGNING_PASSWORD:         ${{ secrets.SIGNING_PASSWORD }}
+        OSSRH_USERNAME:          ${{ secrets.OSSRH_USERNAME }}
+        OSSRH_PASSWORD:          ${{ secrets.OSSRH_PASSWORD }}
+        SIGNING_GPG_SECRET_KEY:  ${{ secrets.SIGNING_GPG_SECRET_KEY }}
+        SIGNING_GPG_PASSWORD:    ${{ secrets.SIGNING_GPG_PASSWORD }}
     - name: Set next snapshot version if required and make new tag
       run: |
         if [[ "${{ github.event.inputs.nextVersion }}" != "CURRENT" ]]
@@ -67,7 +65,7 @@ jobs:
           releaseVersion=${{ steps.prv.outputs.releaseVersion }}
           echo $releaseVersion
           echo "git tag v$releaseVersion -m \"Rev tag set to v$releaseVersion\""
-          git tag v$releaseVersion -m "Rev tag set to $releaseVersion"
+          git tag v$releaseVersion -m "Revision tag v$releaseVersion prepared"
           git push origin v$releaseVersion
           sed -i "s/projectVersion=$releaseVersion/projectVersion=${{ github.event.inputs.nextVersion }}-SNAPSHOT/" gradle.properties
           git commit -am "[skip actions] Set next snapshot version"
