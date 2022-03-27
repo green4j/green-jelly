@@ -1,9 +1,13 @@
 name: Publish CI
 on:
-  repository_dispatch:
-    types: [publish-and-release]
-    branches:
-      - master
+  workflow_dispatch:
+    inputs:
+      nextVersion:
+        description: 'Next Version'
+        required: true
+        default: 'CURRENT'
+      tags:
+        description: 'Run publish to Maven Central and tagging'
 env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=fail"
 jobs:
@@ -32,13 +36,13 @@ jobs:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
       - name: Generate release version if required
-          if: ${{ github.event.client_payload.nextVersion != 'CURRENT' }}
+          if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
           run: |
             versionRelease=`echo $versionSnapshot | sed 's/\([^-]*\)-SNAPSHOT/\1/'`
             sed -i "s/projectVersion=$versionSnapshot/projectVersion=$versionRelease/" gradle.properties
             git commit -am "[skip actions] Generate release version"
       - name: Remember current version if not changed
-          if: ${{ github.event.client_payload.nextVersion == 'CURRENT' }}
+          if: ${{ github.event.inputs.nextVersion == 'CURRENT' }}
           run: |
             versionRelease=$versionSnapshot
       - name: Setup java 8 to run the Gradle script
@@ -56,9 +60,9 @@ jobs:
           SIGNING_PRIVATE_KEY:      ${{ secrets.SIGNING_PRIVATE_KEY }}
           SIGNING_PASSWORD:         ${{ secrets.SIGNING_PASSWORD }}
       - name: Set next snapshot version if required
-          if: ${{ github.event.client_payload.nextVersion != 'CURRENT' }}
+          if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
           run: |
-            versionSnapshot="${{ github.event.client_payload.nextVersion + '-SNAPSHOT'}}"
+            versionSnapshot="${{ github.event.inputs.nextVersion + '-SNAPSHOT'}}"
             sed -i "s/projectVersion=$versionRelease/projectVersion=$versionSnapshot/" gradle.properties
             git commit -am "[skip actions] Set next snapshot version"
       - name: Make new tag
