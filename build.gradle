@@ -51,8 +51,8 @@ ext {
 
     isRelease = !version.endsWith('-SNAPSHOT')
 
-    ossrhReleasesRepoUrl = 'https://oss.sonatype.org/service/local/staging/deploy/maven2/'
-    ossrhSnapshotsRepoUrl = 'https://oss.sonatype.org/content/repositories/snapshots/'
+    ossrhReleasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+    ossrhSnapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
     ossrhUsername = getConfigProperty('OSSRH_USERNAME')
     ossrhPassword = getConfigProperty('OSSRH_PASSWORD')
 
