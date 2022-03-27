@@ -15,7 +15,7 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 
 ## Binaries
 
-Binaries and dependency information for Maven, Ivy, Gradle, and others can be found at 
+Binaries for Maven, Ivy, Gradle, and others can be found at 
 [http://search.maven.org](https://search.maven.org/search?q=green-jelly).
 
 Example for Maven:
