@@ -62,7 +62,7 @@ jobs:
     - name: Set next snapshot version if required
       if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
       run: |
-        versionSnapshot="${{ github.event.inputs.nextVersion + '-SNAPSHOT'}}"
+        versionSnapshot="${{ github.event.inputs.nextVersion }}-SNAPSHOT"
         sed -i "s/projectVersion=$versionRelease/projectVersion=$versionSnapshot/" gradle.properties
         git commit -am "[skip actions] Set next snapshot version"
     - name: Make new tag
