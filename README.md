@@ -13,6 +13,21 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 * **IO buffering oriented**: the parser can be fed with several parts of one single JSON document, even byte by byte; so it's easy to use it with buffering read
 * **robust**: built according to [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm) with some extensions for the number values (see [Numbers](#numbers))
 
+## Binaries
+
+Binaries and dependency information for Maven, Ivy, Gradle, and others can be found at 
+[http://search.maven.org](https://search.maven.org/search?q=green-jelly).
+
+Example for Maven:
+
+```xml
+<dependency>
+    <groupId>io.github.green4j</groupId>
+    <artifactId>green-jelly</artifactId>
+    <version>${greenJelly.version}</version>
+</dependency>
+```
+
 ## How to build
 
 Just run the standard Gradle build and install process:
