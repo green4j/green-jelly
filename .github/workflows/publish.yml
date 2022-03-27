@@ -23,6 +23,7 @@ jobs:
         git config user.email github-actions@github.com
         git fetch
         versionSnapshot=`grep 'projectVersion=' gradle.properties | sed 's/projectVersion=\([^-]*\)/\1/'`
+        echo "::set-env name=versionSnapshot::versionSnapshot"
     - name: Cache Gradle dependencies
       uses: actions/cache@v3
       with:
@@ -38,14 +39,17 @@ jobs:
     - name: Generate release version if required
       if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
       run: |
+        versionSnapshot="${{ env.versionSnapshot }}"
         echo "$versionSnapshot"
         versionRelease=`echo $versionSnapshot | sed 's/\([^-]*\)-SNAPSHOT/\1/'`
         sed -i "s/projectVersion=$versionSnapshot/projectVersion=$versionRelease/" gradle.properties
         git commit -am "[skip actions] Generate release version"
+        echo "::set-env name=versionRelease::versionRelease"
     - name: Remember current version if not changed
       if: ${{ github.event.inputs.nextVersion == 'CURRENT' }}
       run: |
         versionRelease=$versionSnapshot
+        echo "::set-env name=versionRelease::versionRelease"
     - name: Setup java 8 to run the Gradle script
       uses: actions/setup-java@v2
       with:
@@ -63,11 +67,14 @@ jobs:
     - name: Set next snapshot version if required
       if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
       run: |
+        versionSnapshot="${{ env.versionSnapshot }}"
+        versionRelease="${{ env.versionRelease }}"
         versionSnapshot="${{ github.event.inputs.nextVersion }}-SNAPSHOT"
         sed -i "s/projectVersion=$versionRelease/projectVersion=$versionSnapshot/" gradle.properties
         git commit -am "[skip actions] Set next snapshot version"
     - name: Make new tag
       run: |
+        versionRelease="${{ env.versionRelease }}"
         echo 'git tag "v$versionRelease" -m, "Rev tag set to $versionRelease"'
         git tag "v$versionRelease" -m, "Rev tag set to $versionRelease"
         git push origin
