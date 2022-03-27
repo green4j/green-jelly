@@ -23,9 +23,9 @@ jobs:
         git config user.email github-actions@github.com
         git fetch
         VS=`grep 'projectVersion=' gradle.properties | sed 's/projectVersion=\([^-]*\)/\1/'`
-        echo "$VS"
+        echo "=$VS"
         echo "::set-output name=versionSnapshot::$VS"
-        echo "${{ steps.vars.outputs.versionSnapshot }}"
+        echo "==${{ steps.vars.outputs.versionSnapshot }}=="
     - name: Cache Gradle dependencies
       uses: actions/cache@v3
       with:
