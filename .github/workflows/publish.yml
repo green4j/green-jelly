@@ -17,16 +17,6 @@ jobs:
       run: echo "Next version ${{ github.event.inputs.nextVersion }}"
     - name: Checkout code
       uses: actions/checkout@v3
-    - name: Read current snapshot version
-      id: rcsv
-      run: |
-        git config user.name github-actions
-        git config user.email github-actions@github.com
-        git fetch
-        VS=`grep 'projectVersion=' gradle.properties | sed 's/projectVersion=\([^-]*\)/\1/'`
-        echo "=$VS"
-        echo "::set-output name=versionSnapshot::$VS"
-        echo "==${{ steps.rcsv.outputs.versionSnapshot }}=="
     - name: Cache Gradle dependencies
       uses: actions/cache@v3
       with:
@@ -39,21 +29,23 @@ jobs:
       with:
         path: ~/.gradle/wrapper
         key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
-    - name: Generate release version if required
-      if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
+    - name: Prepare release version
+      id: prv
+      #if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
       run: |
-        echo "==${{ steps.rcsv.outputs.versionSnapshot }}=="
-        versionSnapshot="${{ steps.vars.outputs.versionSnapshot }}"
-        echo "$versionSnapshot"
-        versionRelease=`echo $versionSnapshot | sed 's/\([^-]*\)-SNAPSHOT/\1/'`
-        sed -i "s/projectVersion=$versionSnapshot/projectVersion=$versionRelease/" gradle.properties
-        git commit -am "[skip actions] Generate release version"
-        echo ::set-output name=versionRelease::"versionRelease"
-    - name: Remember current version if not changed
-      if: ${{ github.event.inputs.nextVersion == 'CURRENT' }}
-      run: |
-        versionRelease=$versionSnapshot
-        echo ::set-output name=versionRelease::"versionRelease"
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git fetch
+        snapshotVersion=`grep 'projectVersion=' gradle.properties | sed 's/projectVersion=\([^-]*\)/\1/'`
+        echo "$snapshotVersion"
+        if [[ "${{ github.event.inputs.nextVersion }}" == "CURRENT" ]]
+        then
+          releaseVersion="$snapshotVersion"
+        else
+          releaseVersion=`echo $snapshotVersion | sed 's/\([^-]*\)-SNAPSHOT/\1/'`
+          sed -i "s/projectVersion=$snapshotVersion/projectVersion=$releaseVersion/" gradle.properties
+        fi
+        echo ::set-output name=releaseVersion::"$releaseVersion"
     - name: Setup java 8 to run the Gradle script
       uses: actions/setup-java@v2
       with:
@@ -68,17 +60,16 @@ jobs:
         SONATYPE_NEXUS_PASSWORD:  ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
         SIGNING_PRIVATE_KEY:      ${{ secrets.SIGNING_PRIVATE_KEY }}
         SIGNING_PASSWORD:         ${{ secrets.SIGNING_PASSWORD }}
-    - name: Set next snapshot version if required
-      if: ${{ github.event.inputs.nextVersion != 'CURRENT' }}
+    - name: Set next snapshot version if required and make new tag
       run: |
-        versionSnapshot="${{ steps.vars.outputs.versionSnapshot }}"
-        versionRelease="${{ steps.vars.outputs.versionRelease }}"
-        versionSnapshot="${{ github.event.inputs.nextVersion }}-SNAPSHOT"
-        sed -i "s/projectVersion=$versionRelease/projectVersion=$versionSnapshot/" gradle.properties
-        git commit -am "[skip actions] Set next snapshot version"
-    - name: Make new tag
-      run: |
-        versionRelease="${{ steps.vars.outputs.versionRelease }}"
-        echo 'git tag "v$versionRelease" -m, "Rev tag set to $versionRelease"'
-        git tag "v$versionRelease" -m, "Rev tag set to $versionRelease"
-        git push origin
+        if [[ "${{ github.event.inputs.nextVersion }}" != "CURRENT" ]]
+        then
+          releaseVersion="${{ steps.prv.outputs.releaseVersion }}"
+          echo "$releaseVersion"
+
+          sed -i "s/projectVersion=$releaseVersion/projectVersion=${{ github.event.inputs.nextVersion }}-SNAPSHOT/" gradle.properties
+          git commit -am "[skip actions] Set next snapshot version"
+          echo 'git tag "v$releaseVersion" -m, "Rev tag set to $releaseVersion"'
+          git tag "v$releaseVersion" -m, "Rev tag set to $releaseVersion"
+          git push origin
+        fi
