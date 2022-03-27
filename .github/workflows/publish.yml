@@ -24,7 +24,7 @@ jobs:
         git fetch
         versionSnapshot=`grep 'projectVersion=' gradle.properties | sed 's/projectVersion=\([^-]*\)/\1/'`
         echo "$versionSnapshot"
-        echo ::set-output name=versionSnapshot::"$versionSnapshot"
+        echo ::set-output name=versionSnapshot::"$(echo \"$versionSnapshot\")"
         echo "${{ steps.vars.outputs.versionSnapshot }}"
     - name: Cache Gradle dependencies
       uses: actions/cache@v3
