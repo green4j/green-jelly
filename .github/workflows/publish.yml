@@ -40,12 +40,12 @@ jobs:
         echo "$snapshotVersion"
         if [[ "${{ github.event.inputs.nextVersion }}" == "CURRENT" ]]
         then
-          releaseVersion="$snapshotVersion"
+          releaseVersion=$snapshotVersion
         else
           releaseVersion=`echo $snapshotVersion | sed 's/\([^-]*\)-SNAPSHOT/\1/'`
           sed -i "s/projectVersion=$snapshotVersion/projectVersion=$releaseVersion/" gradle.properties
         fi
-        echo ::set-output name=releaseVersion::"$releaseVersion"
+        echo ::set-output name=releaseVersion::$releaseVersion
     - name: Setup java 8 to run the Gradle script
       uses: actions/setup-java@v2
       with:
@@ -64,12 +64,12 @@ jobs:
       run: |
         if [[ "${{ github.event.inputs.nextVersion }}" != "CURRENT" ]]
         then
-          releaseVersion="${{ steps.prv.outputs.releaseVersion }}"
-          echo "$releaseVersion"
-
+          releaseVersion=${{ steps.prv.outputs.releaseVersion }}
+          echo $releaseVersion
+          echo "git tag v$releaseVersion -m \"Rev tag set to v$releaseVersion\""
+          git tag v$releaseVersion -m "Rev tag set to $releaseVersion"
+          git push origin v$releaseVersion
           sed -i "s/projectVersion=$releaseVersion/projectVersion=${{ github.event.inputs.nextVersion }}-SNAPSHOT/" gradle.properties
           git commit -am "[skip actions] Set next snapshot version"
-          echo "git tag \"v$releaseVersion\" -m \"Rev tag set to v$releaseVersion\""
-          git tag "v$releaseVersion" -m "Rev tag set to $releaseVersion"
           git push origin
         fi
