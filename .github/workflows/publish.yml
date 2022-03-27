@@ -1,0 +1,16 @@
+name: Publish CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      nextVersion:
+        description: 'Next Version'
+        default: 'CURRENT'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Say next version
+      run: echo "Next version ${{ github.event.inputs.nextVersion }}"
