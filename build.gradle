@@ -172,7 +172,7 @@ publishing {
     repositories {
         maven {
             name = 'MavenCentral'
-            url(!isRelease ? ossrhSnapshotsRepoUrl : ossrhReleasesRepoUrl)
+            url(isRelease ? ossrhReleasesRepoUrl : ossrhSnapshotsRepoUrl)
             credentials {
                 username = ossrhUsername
                 password = ossrhPassword
@@ -182,13 +182,14 @@ publishing {
 }
 
 signing {
-    required {
-        isRelease && gradle.taskGraph.hasTask("publish")
-    }
     if (signingKey) {
         useInMemoryPgpKeys(signingKey, signingPassword)
     }
     sign publishing.publications.greenJelly
+}
+
+tasks.withType(Sign) {
+    onlyIf { isRelease }
 }
 
 wrapper {
