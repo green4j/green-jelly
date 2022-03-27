@@ -7,10 +7,8 @@ on:
     types: [opened, synchronize]
     branches:
       - master
-
 env:
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=fail"
 jobs:
   build:
     name: Java ${{ matrix.java }} (${{ matrix.os }})
@@ -23,16 +21,16 @@ jobs:
         os: [ 'ubuntu-20.04', 'windows-latest' ]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Cache Gradle dependencies
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/caches
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
       - name: Cache Gradle wrapper
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
@@ -41,10 +39,5 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: ${{ matrix.java }}
-      - name: Setup java 8 to run the Gradle script
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'zulu'
-          java-version: 8
       - name: Build with Gradle
         run: ./gradlew

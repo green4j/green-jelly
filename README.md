@@ -2,10 +2,11 @@
 
 [![Actions Status](https://github.com/green4j/green-jelly/workflows/Build%20CI/badge.svg)](https://github.com/green4j/green-jelly/actions/)
 [![Code Quality: Java](https://img.shields.io/lgtm/grade/java/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/context:java)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/alerts/)
 
 GC-free (green) JSON parser/generator library for Java which isn't an object mapper, but aims to be:
 
-* **minimal**: MIT licensed with no dependencies (i.e. just drop the code into your project)
+* **minimal**: MIT licensed with no dependencies
 * **reactive styled**: the parser can parse a JSON document part by part (i.e. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens with verbose `if` or `switch`, just handle a callback you are interested in
 * **lightweight**: the code never recurses or allocates more memory than it needs, the Flyweight patern can be used to wrap a receive/send buffer to prevent memory copying
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see [Performance](#performance)). No additional GC pauses introduced, since the code doesn't allocate new memory in its main/critical path
@@ -14,14 +15,18 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 
 ## How to build
 
-Just run `gradlew` to build the library. But prefer to just drop the code into your own project and modify according to your own needs; don't forget about unit tests.
+Just run the standard Gradle build and install process:
+
+```
+    ./gradlew
+```
 
 ## Usage
 
 ### JsonParser
 
-Generic pattern of the usage if the following:
-* create instance of the JsonParser
+The generic pattern of the usage if the following:
+* create an instance of the JsonParser
 * set a listener (an instance of the `JsonParserListener` interface) to get all parsing events
 * call the `parse` method as many times as many parts of a JSON document you have
 * finish the parsing with a call of the `eoj`(End Of JSON) method (or use `parseAndEoj` method)
@@ -77,15 +82,15 @@ boolean onFalseValue();
 
 boolean onNullValue();
 ```
-If any of method returns `false`, the parsing is stopped and can be continued then (see [Parsing with steps](#parsing-with-steps)).
-A default implementatation of the listener is included to the library as `JsonParserListenerAdaptor`. All callbacks of the adaptor are empty and just return `true`.
+If any of method returns `false`, the parsing stops and can continue then (see [Parsing with steps](#parsing-with-steps)).
+There is a default implementation of the listener in the library `JsonParserListenerAdapter`. All callbacks of the adaptor are empty and just return `true`.
 
 #### Numbers
 
 Supported format of number values is a bit more relaxed than specified in [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm):
 * the numbers can start with both `+` or `-`
 * the leading zeros are allowed for both mantissa and exponent
-* mantissa is presented by java's signed long which is a bit whider than JavaScript numbers [-(2^53)+1, (2^53)-1]
+* mantissa is presented by java's signed long which is a bit wider than JavaScript numbers [-(2^53)+1, (2^53)-1]
 
 To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point arithmetic. Numbers are presented with the following interface:
 ```java
@@ -100,7 +105,7 @@ public interface JsonNumber {
 Feel free to use any type of arithmetic like [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, out-of-the-box `java.math.BigDecimal`, which a bit slow and allocates new memory, etc. An example of `java.math.BigDecimal` using:
 
 ```java
-JsonNumber number = ...ш9ро
+JsonNumber number = ...
 BigDecimal decimal = BigDecimal.valueOf(number.mantissa(), -number.exp());
 ```
 Sometimes vendor sends numbers as string values. To parse such values you can use static `JsonParser.parseNumber` method:

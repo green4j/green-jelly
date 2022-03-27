@@ -616,7 +616,7 @@ public class JsonParserTest {
         final MutableLong result = new MutableLong(0);
 
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(
-                new JsonParserListenerAdaptor() {
+                new JsonParserListenerAdapter() {
                     @Override
                     public boolean onArrayEnded() {
                         return false;

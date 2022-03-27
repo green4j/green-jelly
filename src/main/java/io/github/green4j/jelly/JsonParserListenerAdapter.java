@@ -23,7 +23,7 @@
  */
 package io.github.green4j.jelly;
 
-public class JsonParserListenerAdaptor implements JsonParserListener {
+public class JsonParserListenerAdapter implements JsonParserListener {
 
     @Override
     public void onJsonStarted() {
