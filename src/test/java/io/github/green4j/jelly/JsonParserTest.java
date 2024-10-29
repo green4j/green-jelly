@@ -1,7 +1,7 @@
 /**
  * MIT License
  * <p>
- * Copyright (c) 2018-2022 Anatoly Gudkov and others.
+ * Copyright (c) 2018-2024 Anatoly Gudkov and others.
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -266,7 +266,7 @@ public class JsonParserTest {
             assertTrue(events.isEmpty());
         }
 
-        final String[][] splittedNumbers = new String[][]{
+        final String[][] splitNumbers = new String[][]{
                 new String[]{"1", "2"},
                 new String[]{"+", "123"},
                 new String[]{"-", "123.45"},
@@ -275,7 +275,7 @@ public class JsonParserTest {
         };
 
         final StringBuilder fullNumber = new StringBuilder();
-        for (final String[] numberPart : splittedNumbers) {
+        for (final String[] numberPart : splitNumbers) {
             events.clear();
             fullNumber.setLength(0);
             for (final String part : numberPart) {

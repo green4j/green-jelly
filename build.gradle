@@ -1,7 +1,7 @@
 /**
  * MIT License
  *
- * Copyright (c) 2018-2022 Anatoly Gudkov and others.
+ * Copyright (c) 2018-2024 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -146,7 +146,7 @@ check {
 
 javadoc {
     title = "<h1>${projectName}</h1>"
-    options.bottom = "<i>Copyright &#169; 2018-2022 ${projectAuthor}. All Rights Reserved.</i>"
+    options.bottom = "<i>Copyright &#169; 2018-2024 ${projectAuthor}. All Rights Reserved.</i>"
     options.encoding = 'UTF-8'
     options.docEncoding = 'UTF-8'
     options.charSet = 'UTF-8'
