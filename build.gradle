@@ -95,8 +95,9 @@ repositories {
 }
 
 dependencies {
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${jupiterVersion}"
-    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${jupiterVersion}"
+    testImplementation "org.junit.jupiter:junit-jupiter:${jupiterVersion}"
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
     checkstyle "com.puppycrawl.tools:checkstyle:${checkstyleVersion}"
 }
 
@@ -190,9 +191,4 @@ signing {
 
 tasks.withType(Sign) {
     onlyIf { isRelease }
-}
-
-wrapper {
-    gradleVersion = '7.4.1'
-    distributionType = 'ALL'
 }
