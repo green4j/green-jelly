@@ -27,15 +27,16 @@ import java.math.BigDecimal;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonParserTest {
     @Test
-    public void parseNumber() {
+    public void parseNumberTest() {
         final String[] numbers = new String[]{
-                Long.toString(Long.MIN_VALUE),
+                Long.toString(-JsonParser.MAX_MANTISSA_VALUE),
                 Double.toString(Double.MIN_VALUE),
                 Float.toString(Float.MIN_VALUE),
                 "-1034567770766.0001",
@@ -64,7 +65,7 @@ public class JsonParserTest {
                 "+1034567770766.0001",
                 Float.toString(Float.MAX_VALUE),
                 Double.toString(Double.MAX_VALUE),
-                Long.toString(Long.MAX_VALUE)
+                Long.toString(JsonParser.MAX_MANTISSA_VALUE)
         };
 
         final MutableJsonNumber result = new MutableJsonNumber();
@@ -75,6 +76,70 @@ public class JsonParserTest {
             final BigDecimal parsed = BigDecimal.valueOf(result.mantissa(), -result.exp());
             final BigDecimal expected = new BigDecimal(number);
             assertEquals(expected, parsed);
+        }
+    }
+
+    @Test
+    public void parseNumberOverflowTest() {
+        final String[] numbers = new String[] {
+                JsonParser.MAX_MANTISSA_VALUE + "",
+                (JsonParser.MAX_MANTISSA_VALUE + 1) + "",
+                "9999999999999999999999",
+                "9999999999999999999999E10",
+                "9999999999999999999999E-10",
+                "0." + JsonParser.MAX_MANTISSA_VALUE,
+                "0." + (JsonParser.MAX_MANTISSA_VALUE + 1),
+                "0.9999999999999999999999",
+                "9.9999999999999999999999",
+                "9.9999999999999999999999E10",
+                "9.9999999999999999999999E-10"
+        };
+        final boolean[] overflow = new boolean[] {
+                false,
+                true,
+                true,
+                true,
+                true,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true
+        };
+
+        final long[] mantissas = new long[] {
+                9223372036854775799L,
+                922337203685477580L,
+                999999999999999999L,
+                999999999999999999L,
+                999999999999999999L,
+                9223372036854775799L,
+                922337203685477580L,
+                999999999999999999L,
+                999999999999999999L,
+                999999999999999999L,
+                999999999999999999L
+        };
+        final int[] exponents = new int[] {
+                0,
+                1,
+                4,
+                14,
+                -6,
+                -19,
+                -18,
+                -18,
+                -17,
+                -7,
+                -27
+        };
+
+        final MutableJsonNumber number = new MutableJsonNumber();
+        for (int i = 0; i < numbers.length; i++) {
+            assertEquals(overflow[i], JsonParser.parseNumber(numbers[i], number));
+            assertEquals(mantissas[i], number.mantissa());
+            assertEquals(exponents[i], number.exp());
         }
     }
 
@@ -220,7 +285,7 @@ public class JsonParserTest {
         final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
 
         final String[] numbers = new String[]{
-                Long.toString(Long.MIN_VALUE),
+                Long.toString(-JsonParser.MAX_MANTISSA_VALUE),
                 Double.toString(Double.MIN_VALUE),
                 Float.toString(Float.MIN_VALUE),
                 "-1034567770766.0001",
@@ -249,7 +314,7 @@ public class JsonParserTest {
                 "+1034567770766.0001",
                 Float.toString(Float.MAX_VALUE),
                 Double.toString(Double.MAX_VALUE),
-                Long.toString(Long.MAX_VALUE)
+                Long.toString(JsonParser.MAX_MANTISSA_VALUE)
         };
 
         for (final String number : numbers) {
@@ -260,6 +325,7 @@ public class JsonParserTest {
             assertNotNull(events.pop().as(JsonEvents.JsonEnd.class));
             final JsonEvents.NumberValue event = events.pop().as(JsonEvents.NumberValue.class);
             assertNotNull(event);
+            assertFalse(event.overflow());
             final BigDecimal expected = new BigDecimal(number);
             assertEquals(expected, event.number());
             assertNotNull(events.pop().as(JsonEvents.JsonStart.class));
@@ -287,8 +353,82 @@ public class JsonParserTest {
             assertNotNull(events.pop().as(JsonEvents.JsonEnd.class));
             final JsonEvents.NumberValue event = events.pop().as(JsonEvents.NumberValue.class);
             assertNotNull(event);
+            assertFalse(event.overflow());
             final BigDecimal expected = new BigDecimal(fullNumber.toString());
             assertEquals(expected, event.number());
+            assertNotNull(events.pop().as(JsonEvents.JsonStart.class));
+            assertTrue(events.isEmpty());
+        }
+    }
+
+    @Test
+    public void numberOverflowTest() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        final String[] numbers = new String[] {
+                JsonParser.MAX_MANTISSA_VALUE + "",
+                (JsonParser.MAX_MANTISSA_VALUE + 1) + "",
+                "9999999999999999999999",
+                "9999999999999999999999E10",
+                "9999999999999999999999E-10",
+                "0." + JsonParser.MAX_MANTISSA_VALUE,
+                "0." + (JsonParser.MAX_MANTISSA_VALUE + 1),
+                "0.9999999999999999999999",
+                "9.9999999999999999999999",
+                "9.9999999999999999999999E10",
+                "9.9999999999999999999999E-10"
+        };
+        final boolean[] overflow = new boolean[] {
+                false,
+                true,
+                true,
+                true,
+                true,
+                false,
+                true,
+                true,
+                true,
+                true,
+                true
+        };
+
+        final long[] mantissas = new long[] {
+                9223372036854775799L,
+                922337203685477580L,
+                999999999999999999L,
+                999999999999999999L,
+                999999999999999999L,
+                9223372036854775799L,
+                922337203685477580L,
+                999999999999999999L,
+                999999999999999999L,
+                999999999999999999L,
+                999999999999999999L
+        };
+        final int[] exponents = new int[] {
+                0,
+                1,
+                4,
+                14,
+                -6,
+                -19,
+                -18,
+                -18,
+                -17,
+                -7,
+                -27
+        };
+
+        for (int i = 0; i < numbers.length; i++) {
+            events.clear();
+            parser.parseAndEoj(numbers[i]);
+            assertNotNull(events.pop().as(JsonEvents.JsonEnd.class));
+            final JsonEvents.NumberValue event = events.pop().as(JsonEvents.NumberValue.class);
+            assertNotNull(event);
+            assertEquals(overflow[i], event.overflow());
+            assertEquals(mantissas[i], event.jsonNumber().mantissa());
+            assertEquals(exponents[i], event.jsonNumber().exp());
             assertNotNull(events.pop().as(JsonEvents.JsonStart.class));
             assertTrue(events.isEmpty());
         }
@@ -465,14 +605,14 @@ public class JsonParserTest {
         expectedEvents.onArrayEnded();
         expectedEvents.onArrayStarted();
         expectedEvents.onArrayStarted();
-        expectedEvents.onNumberValue(1, 0);
-        expectedEvents.onNumberValue(2, 0);
+        expectedEvents.onNumberValue(1, 0, false);
+        expectedEvents.onNumberValue(2, 0, false);
         expectedEvents.onArrayEnded();
         expectedEvents.onArrayStarted();
-        expectedEvents.onNumberValue(2, 0);
+        expectedEvents.onNumberValue(2, 0, false);
         expectedEvents.onArrayEnded();
         expectedEvents.onArrayStarted();
-        expectedEvents.onNumberValue(3, 0);
+        expectedEvents.onNumberValue(3, 0, false);
         expectedEvents.onArrayEnded();
         expectedEvents.onArrayStarted();
         expectedEvents.onObjectStarted();
@@ -510,7 +650,7 @@ public class JsonParserTest {
         expectedEvents.onArrayStarted();
         expectedEvents.onObjectStarted();
         expectedEvents.onObjectMember("a_1");
-        expectedEvents.onNumberValue(1, 0);
+        expectedEvents.onNumberValue(1, 0, false);
         expectedEvents.onObjectMember("a_2");
         expectedEvents.onTrueValue();
         expectedEvents.onObjectEnded();
@@ -569,7 +709,7 @@ public class JsonParserTest {
         expectedEvents.onJsonStarted();
         expectedEvents.onObjectStarted();
         expectedEvents.onObjectMember("prop1");
-        expectedEvents.onNumberValue(-12350, -3);
+        expectedEvents.onNumberValue(-12350, -3, false);
         expectedEvents.onObjectMember("prop2");
         expectedEvents.onArrayStarted();
         expectedEvents.onStringValue("aaa");
@@ -579,10 +719,10 @@ public class JsonParserTest {
         expectedEvents.onObjectStarted();
         expectedEvents.onObjectMember("prop3_1");
         expectedEvents.onArrayStarted();
-        expectedEvents.onNumberValue(1, 0);
-        expectedEvents.onNumberValue(2, 0);
-        expectedEvents.onNumberValue(3, 0);
-        expectedEvents.onNumberValue(4, 0);
+        expectedEvents.onNumberValue(1, 0, false);
+        expectedEvents.onNumberValue(2, 0, false);
+        expectedEvents.onNumberValue(3, 0, false);
+        expectedEvents.onNumberValue(4, 0, false);
         expectedEvents.onArrayEnded();
         expectedEvents.onObjectMember("prop3_2");
         expectedEvents.onNullValue();

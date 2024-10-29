@@ -79,12 +79,18 @@ public class JsonEvents implements JsonParserListener {
 
     @Override
     public boolean onNumberValue(final JsonNumber number) {
-        stack.add(new NumberValue(number));
+        stack.add(new NumberValue(number, false));
         return true;
     }
 
-    public void onNumberValue(final long mantissa, final int exp) {
-        stack.add(new NumberValue(mantissa, exp));
+    @Override
+    public boolean onNumberValue(final JsonNumber number, final boolean overflow) {
+        stack.add(new NumberValue(number, overflow));
+        return true;
+    }
+
+    public void onNumberValue(final long mantissa, final int exp, final boolean overflow) {
+        stack.add(new NumberValue(mantissa, exp, overflow));
     }
 
     @Override
@@ -242,38 +248,47 @@ public class JsonEvents implements JsonParserListener {
     }
 
     public abstract class NumberEvent extends Event {
-
+        private final MutableJsonNumber jsonNumber;
+        private final boolean overflow;
         private final BigDecimal number;
 
-        protected NumberEvent(final long mantissa, final int exp) {
-            this.number = BigDecimal.valueOf(mantissa, -exp);
+        protected NumberEvent(final long mantissa, final int exp, final boolean overflow) {
+            jsonNumber = new MutableJsonNumber(mantissa, exp);
+            this.overflow = overflow;
+            number = BigDecimal.valueOf(mantissa, -exp);
         }
 
         public BigDecimal number() {
             return number;
         }
 
-        @Override
-        public int hashCode() {
-            int hash = 7;
-            hash = 97 * hash + Objects.hashCode(this.number);
-            return hash;
+        public JsonNumber jsonNumber() {
+            return jsonNumber;
+        }
+
+        public boolean overflow() {
+            return overflow;
         }
 
         @Override
         @SuppressWarnings("unchecked")
-        public boolean equals(final Object obj) {
-            if (this == obj) {
+        public boolean equals(final Object o) {
+            if (this == o) {
                 return true;
             }
-            if (obj == null) {
+            if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            if (getClass() != obj.getClass()) {
+            if (!super.equals(o)) {
                 return false;
             }
-            final NumberEvent other = (NumberEvent) obj;
-            return Objects.equals(this.number, other.number);
+            final NumberEvent that = (NumberEvent) o;
+            return overflow == that.overflow && Objects.equals(number, that.number);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), overflow, number);
         }
 
         @Override
@@ -310,12 +325,12 @@ public class JsonEvents implements JsonParserListener {
 
     public class NumberValue extends NumberEvent {
 
-        public NumberValue(final JsonNumber value) {
-            super(value.mantissa(), value.exp());
+        public NumberValue(final JsonNumber value, final boolean overflow) {
+            super(value.mantissa(), value.exp(), overflow);
         }
 
-        public NumberValue(final long mantissa, final int exp) {
-            super(mantissa, exp);
+        public NumberValue(final long mantissa, final int exp, final boolean overflow) {
+            super(mantissa, exp, overflow);
         }
     }
 

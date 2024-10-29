@@ -91,6 +91,8 @@ boolean onStringValue(CharSequence data);
 
 boolean onNumberValue(JsonNumber number);
 
+boolean onNumberValue(JsonNumber number, boolean overflow); // optional, has a default implementation
+
 boolean onTrueValue();
 
 boolean onFalseValue();

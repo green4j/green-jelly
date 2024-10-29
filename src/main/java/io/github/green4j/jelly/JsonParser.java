@@ -114,11 +114,16 @@ public final class JsonParser {
     private static final int JSON_STARTED_NOTIFICATION_REQUIRED = -1;
     private static final int RESET_REQUIRED = JSON_STARTED_NOTIFICATION_REQUIRED - 1;
 
-    public static void parseNumber(final CharSequence data, final MutableJsonNumber to) {
+    private static final long MAX_MANTISSA_BASE = 922337203685477579L;
+
+    public static final long MAX_MANTISSA_VALUE = MAX_MANTISSA_BASE * 10 + 9;
+
+    public static boolean parseNumber(final CharSequence data, final MutableJsonNumber to) {
         int currentLexState = LEXEMA_READY;
 
         int numberMantissaExp = 0;
         int numberMinuses = 0;
+        boolean numberOverflow = false;
 
         final int len = data.length();
 
@@ -166,7 +171,13 @@ public final class JsonParser {
                                 while (true) {
                                     c = data.charAt(pos);
                                     if (c >= '0' && c <= '9') {
-                                        to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                                        final long m = to.mantissa();
+                                        numberOverflow |= m > MAX_MANTISSA_BASE;
+                                        if (!numberOverflow) {
+                                            to.setMantissa(m * 10 + (c - '0'));
+                                        } else {
+                                            numberMantissaExp++;
+                                        }
                                         if (++pos == len) {
                                             break _end;
                                         }
@@ -196,7 +207,13 @@ public final class JsonParser {
                 case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
                     while (true) {
                         if (c >= '0' && c <= '9') {
-                            to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                            final long m = to.mantissa();
+                            numberOverflow |= m > MAX_MANTISSA_BASE;
+                            if (!numberOverflow) {
+                                to.setMantissa(m * 10 + (c - '0'));
+                            } else {
+                                numberMantissaExp++;
+                            }
                             if (++pos == len) {
                                 break _end;
                             }
@@ -229,7 +246,7 @@ public final class JsonParser {
                         case '7':
                         case '8':
                         case '9':
-                            to.setMantissa(to.mantissa() * 10 + (c - '0'));
+                            to.setMantissa(c - '0');
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
                             break _next_char;
                         default:
@@ -240,8 +257,13 @@ public final class JsonParser {
                 case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
                     while (true) {
                         if (c >= '0' && c <= '9') {
-                            to.setMantissa(to.mantissa() * 10 + (c - '0'));
-                            numberMantissaExp--;
+                            final long m = to.mantissa();
+                            numberOverflow |= m > MAX_MANTISSA_BASE;
+                            if (!numberOverflow) {
+                                to.setMantissa(m * 10 + (c - '0'));
+                                numberMantissaExp--;
+                            }
+
                             if (++pos == len) {
                                 break _end;
                             }
@@ -330,6 +352,7 @@ public final class JsonParser {
             }
         }
         setNumber(to, numberMinuses, numberMantissaExp);
+        return numberOverflow;
     }
 
     private final Next next = () -> JsonParser.this.next();
@@ -350,6 +373,7 @@ public final class JsonParser {
 
     private int numberMantissaExp;
     private int numberMinuses;
+    private boolean numberOverflow;
 
     private String error;
     private int errorPosition;
@@ -647,6 +671,7 @@ public final class JsonParser {
                             number.setExp(0);
                             numberMantissaExp = 0;
                             numberMinuses = 2;
+                            numberOverflow = false;
                             currentLexPos = pos;
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
                             break;
@@ -656,6 +681,7 @@ public final class JsonParser {
                             number.setExp(0);
                             numberMantissaExp = 0;
                             numberMinuses = 0;
+                            numberOverflow = false;
                             currentLexPos = pos;
                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
                             break;
@@ -674,13 +700,20 @@ public final class JsonParser {
                             number.setExp(0);
                             numberMantissaExp = 0;
                             numberMinuses = 0;
+                            numberOverflow = false;
                             currentLexPos = pos;
                             if (len - pos > 1) { // try to read available part of the number value's mantissa
                                 pos++;
                                 while (true) {
                                     c = data.charAt(start + pos);
                                     if (c >= '0' && c <= '9') {
-                                        number.setMantissa(number.mantissa() * 10 + (c - '0'));
+                                        final long m = number.mantissa();
+                                        numberOverflow |= m > MAX_MANTISSA_BASE;
+                                        if (!numberOverflow) {
+                                            number.setMantissa(m * 10 + (c - '0'));
+                                        } else {
+                                            numberMantissaExp++;
+                                        }
                                         if (++pos == len) {
                                             break;
                                         }
@@ -849,7 +882,13 @@ public final class JsonParser {
                         case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
-                                    number.setMantissa(number.mantissa() * 10 + (c - '0'));
+                                    final long m = number.mantissa();
+                                    numberOverflow |= m > MAX_MANTISSA_BASE;
+                                    if (!numberOverflow) {
+                                        number.setMantissa(m * 10 + (c - '0'));
+                                    } else {
+                                        numberMantissaExp++;
+                                    }
                                     if (++pos == len) {
                                         break _end;
                                     }
@@ -903,7 +942,7 @@ public final class JsonParser {
                                 case '7':
                                 case '8':
                                 case '9':
-                                    number.setMantissa(number.mantissa() * 10 + (c - '0'));
+                                    number.setMantissa(c - '0');
                                     currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
                                     break _next_char;
                                 default:
@@ -914,8 +953,12 @@ public final class JsonParser {
                         case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
-                                    number.setMantissa(number.mantissa() * 10 + (c - '0'));
-                                    numberMantissaExp--;
+                                    final long m = number.mantissa();
+                                    numberOverflow |= m > MAX_MANTISSA_BASE;
+                                    if (!numberOverflow) {
+                                        number.setMantissa(m * 10 + (c - '0'));
+                                        numberMantissaExp--;
+                                    }
                                     if (++pos == len) {
                                         break _end;
                                     }
@@ -1462,7 +1505,7 @@ public final class JsonParser {
 
         switch (currentScope) {
             case EXPRESSION_INITIAL: {
-                final boolean r = lnr.onNumberValue(number);
+                final boolean r = lnr.onNumberValue(number, numberOverflow);
                 popScope();
                 if (r) {
                     break;
@@ -1470,7 +1513,7 @@ public final class JsonParser {
                 return 1;
             }
             case EXPRESSION_OBJECT_STARTED_MEMBER_NAME_VALUE_COLON_DELIMITER: {
-                final boolean r = lnr.onNumberValue(number);
+                final boolean r = lnr.onNumberValue(number, numberOverflow);
                 replaceScope(EXPRESSION_OBJECT_STARTED_MEMBER_VALUE);
                 if (r) {
                     break;
@@ -1479,7 +1522,7 @@ public final class JsonParser {
             }
             case EXPRESSION_ARRAY_STARTED:
             case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
-                final boolean r = lnr.onNumberValue(number);
+                final boolean r = lnr.onNumberValue(number, numberOverflow);
                 replaceScope(EXPRESSION_ARRAY_STARTED_VALUE);
                 if (r) {
                     break;
@@ -1643,7 +1686,7 @@ public final class JsonParser {
                     case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART:
                     case LEXEMA_NUMBER_STARTED_E_VALUE:
                         setNumber(number, numberMinuses, numberMantissaExp); // try to apply the number
-                        lnr.onNumberValue(number);
+                        lnr.onNumberValue(number, numberOverflow);
                         popScope();
                         break;
                 }

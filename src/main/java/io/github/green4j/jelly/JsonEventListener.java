@@ -39,6 +39,10 @@ public interface JsonEventListener {
 
     boolean onNumberValue(JsonNumber number);
 
+    default boolean onNumberValue(JsonNumber number, boolean overflow) {
+        return onNumberValue(number);
+    }
+
     boolean onTrueValue();
 
     boolean onFalseValue();
