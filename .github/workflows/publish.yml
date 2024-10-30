@@ -11,7 +11,7 @@ env:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=fail"
 jobs:
   build:
-    runs-on: 'ubuntu-20.04'
+    runs-on: 'ubuntu-24.04'
     steps:
     - name: Say next version
       run: echo "Next version ${{ github.event.inputs.nextVersion }}"
@@ -46,11 +46,11 @@ jobs:
           sed -i "s/projectVersion=$snapshotVersion/projectVersion=$releaseVersion/" gradle.properties
         fi
         echo ::set-output name=releaseVersion::$releaseVersion
-    - name: Setup java 8 to run the Gradle script
+    - name: Setup java 11 to run the Gradle script
       uses: actions/setup-java@v2
       with:
         distribution: 'zulu'
-        java-version: 8
+        java-version: 11
     - name: Test and publish to Maven Central
       run: ./gradlew test publish
       env:

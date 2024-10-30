@@ -395,5 +395,44 @@ public class JsonParserPerformanceComparison {
 </p>
 </details>
 
+##JSON Value
+
+Sometimes we don't worry about memory consumption and CPU utilization, but we need a simple way to work 
+with JSON documents. And we would prefer to don't introduce complex POJO structures and involve object mapping. 
+A good example of approach like that is the `JSON.simple` library. The `Green-Jelly` also provides similar 
+package `io.github.green4j.jelly.simple`.
+
+The `io.github.green4j.jelly.simple.JsonValue` class is the main class to construct a representation of a JSON document:
+```
+JsonValue json = JsonValue.newObject();
+JsonObject user = json.asObject();
+user.putString("name", "Mike");
+user.putInteger("age", 23);
+JsonArray rates = user.putArray("rates");
+rates.addInteger(10);
+rates.addInteger(8);
+```
+
+A `JsonValue` can be serialized with a `io.github.green4j.jelly.simple.JsonWriter` or with a `java.io.Writer`:
+```
+JsonValue json = ...
+
+StringBuilder output = new StringBuilder();
+JsonWriter jsonWriter = new JsonWriterGenerator(new JsonGenerator(output));
+json.toJsonAndEoj(jsonWriter);
+System.out.println(output);
+
+final StringWriter stringWriter = new StringWriter();
+json.toJsonAndEoj(stringWriter);
+System.out.println(stringWriter);
+```
+
+To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
+```
+JsonValueParser parser = new JsonValueParser();
+JsonValue json = parser.parseAndEoj("{ \"name\": \"Mike\", \"age\": 23 }");
+System.out.println(json);   
+```
+
 ## License
 The code is available under the terms of the [MIT License](http://opensource.org/licenses/MIT).
