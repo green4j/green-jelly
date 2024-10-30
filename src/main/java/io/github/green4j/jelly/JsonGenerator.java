@@ -122,6 +122,22 @@ public final class JsonGenerator {
         this.output = output;
     }
 
+    public JsonGenerator(final AppendableWriter<?> output) {
+        this(output, true);
+    }
+
+    public JsonGenerator(final AppendableWriter<?> output, final boolean indent) {
+        this((JsonBufferedWriter) output, indent);
+    }
+
+    public JsonGenerator(final Appendable output) {
+        this(output, true);
+    }
+
+    public JsonGenerator(final Appendable output, final boolean indent) {
+        this(new AppendableWriter<>(output), indent);
+    }
+
     public boolean isIndent() {
         return indent;
     }

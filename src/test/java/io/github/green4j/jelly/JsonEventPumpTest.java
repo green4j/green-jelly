@@ -46,7 +46,7 @@ public class JsonEventPumpTest {
 
         final StringBuilder resultJson = new StringBuilder();
 
-        final JsonGenerator generator = new JsonGenerator(new AppendableWriter<>(resultJson));
+        final JsonGenerator generator = new JsonGenerator(resultJson);
         final JsonEventPump pump = new JsonEventPump(generator);
         parser.setListener(pump);
 
