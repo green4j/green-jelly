@@ -1,8 +1,6 @@
 # Green Jelly
 
 [![Build CI](https://github.com/green4j/green-jelly/actions/workflows/build.yml/badge.svg)](https://github.com/green4j/green-jelly/actions/workflows/build.yml)
-[![Code Quality: Java](https://img.shields.io/lgtm/grade/java/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/context:java)
-[![Total alerts](https://img.shields.io/lgtm/alerts/g/green4j/green-jelly.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/green4j/green-jelly/alerts/)
 
 GC-free (green) JSON parser/generator library for Java which isn't an object mapper, but aims to be:
 
@@ -16,7 +14,7 @@ GC-free (green) JSON parser/generator library for Java which isn't an object map
 ## Binaries
 
 Binaries for Maven, Ivy, Gradle, and others can be found at 
-[http://search.maven.org](https://search.maven.org/search?q=green-jelly).
+[https://central.sonatype.com/search?q=green-jelly](https://central.sonatype.com/search?q=green-jelly).
 
 Example for Maven:
 
@@ -193,6 +191,16 @@ System.out.println(writer.output().toString());
 ### Encodings
 
 The library works over character based abstractions, so, it doesn't implement any encoding functionality. As in case of Gson, for instance, the user has to care about correct bytes-to/from-chars transformation if any required.
+
+At the same time, there are few specific classes to support JSON generation in different encodings if required:
+
+| Json Writer                                  | Buffer Type/Encoding                                                             |
+|----------------------------------------------|----------------------------------------------------------------------------------|
+| io.github.green4j.jelly.AsciiByteArrayWriter | Byte array of ASCII encoded data. All characters outside 0-127 range are escaped |
+| io.github.green4j.jelly.Utf8ByteArrayWriter  | Byte array of UTF-8 encoded data                                                 |
+| io.github.green4j.jelly.CharArrayWriter      | Char array. Can be used as is, or to be converted later to any other encoding    |
+
+Each of the classes has its own internal mutable buffer which can be passed to IO routines after JSON is generated.
 
 ## Performance
 

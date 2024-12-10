@@ -23,13 +23,15 @@
  */
 package io.github.green4j.jelly;
 
+import java.nio.charset.StandardCharsets;
+
 public final class AsciiByteArrayWriter implements JsonBufferedWriter {
 
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
             assert c > 0x1f // all chars <= 0x1f are expected to be encoded to \\uXXXX by JsonGenerator already
-                    && c < 0x7f; // only ASCII supported by the Frame
+                    && c < 0x80; // only ASCII supported by the Frame
 
             array[frameStart + index] = (byte) c;
         }
@@ -41,7 +43,7 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
 
         @Override
         public CharSequence subSequence(final int start, final int end) {
-            throw new UnsupportedOperationException("Not supported.");
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -124,14 +126,14 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
 
         int charIndex = start + length;
 
-        if (c < 0x7f) {
-            makeSureRoomSize(1);
+        makeSureRoomSize(6);
+
+        if (c < 0x80) {
             length++;
             array[charIndex] = (byte) c;
             return;
         }
 
-        makeSureRoomSize(6);
         length = length + 6;
         array[charIndex++] = (byte) '\\';
         array[charIndex++] = (byte) 'u';
@@ -140,21 +142,21 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
             array[charIndex++] = (byte) '0';
             array[charIndex++] = (byte) '0';
             array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
-            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
+            array[charIndex] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
             return;
         }
         if (c < 0x8000) { // 3 bytes
             array[charIndex++] = (byte) '0';
             array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 8 & 0x000f];
             array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
-            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
+            array[charIndex] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
             return;
         }
         // 4 bytes
         array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 12 & 0x000f];
         array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 8 & 0x000f];
         array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
-        array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
+        array[charIndex] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
     }
 
     @Override
@@ -164,8 +166,8 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
 
     @Override
     public void append(final CharSequence data, final int start, final int len) {
-        for (int i = start; i < len; i++) {
-            append(data.charAt(i));
+        for (int i = 0; i < len; i++) {
+            append(data.charAt(start + i));
         }
     }
 
@@ -189,6 +191,6 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
         if (array == null) {
             return "null";
         }
-        return new String(array, start, length);
+        return new String(array, start, length, StandardCharsets.US_ASCII);
     }
 }

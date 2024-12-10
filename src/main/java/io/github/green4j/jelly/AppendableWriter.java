@@ -40,7 +40,7 @@ public final class AppendableWriter<T extends Appendable> implements JsonBuffere
 
         @Override
         public CharSequence subSequence(final int start, final int end) {
-            throw new UnsupportedOperationException("Not supported.");
+            throw new UnsupportedOperationException();
         }
 
         @Override

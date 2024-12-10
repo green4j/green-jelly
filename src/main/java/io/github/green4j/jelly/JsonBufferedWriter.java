@@ -24,11 +24,22 @@
 package io.github.green4j.jelly;
 
 public interface JsonBufferedWriter {
-
+    /**
+     * Frame is a pre-allocated part of a buffer.
+     * The Frame provides ability of writing by index within a some limited space.
+     * This concept is used, for example, for number formatting, when the formatter
+     * starts its writing from low (the right side of a result string) to high
+     * (the left side of a result string) decimal positions of a number.
+     */
     interface Frame extends CharSequence {
         void setCharAt(int index, char c);
     }
 
+    /**
+     * Pre-allocates buffer of required size in the current position of writing.
+     * @param size of the buffer to pre-allocate
+     * @return a buffer
+     */
     Frame append(int size);
 
     void append(char c);

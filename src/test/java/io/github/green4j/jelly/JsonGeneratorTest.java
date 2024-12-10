@@ -47,7 +47,7 @@ public class JsonGeneratorTest {
         ESCAPING['\f'] = "\\f";
     }
 
-    private String escape(final String value) {
+    private static String escape(final String value) {
         final StringBuilder result = new StringBuilder();
         final int length = value.length();
         int lastIndex = 0;
@@ -130,6 +130,7 @@ public class JsonGeneratorTest {
                 new BigDecimal("-1034567770766"),
                 new BigDecimal("-00234.6783456789"),
                 new BigDecimal("-0023400"),
+                new BigDecimal("-50.123E-15"),
                 new BigDecimal("-4.000000123e4"),
                 new BigDecimal("-0.123e-15"),
                 new BigDecimal("-0.123e+10"),
@@ -145,6 +146,7 @@ public class JsonGeneratorTest {
                 new BigDecimal("+0.123E+10"),
                 new BigDecimal("0.123E-15"),
                 new BigDecimal("4.000000123E+4"),
+                new BigDecimal("50.123E-15"),
                 new BigDecimal("14.000000123"),
                 new BigDecimal("+0023400"),
                 new BigDecimal("00234.6783456789"),
@@ -178,6 +180,7 @@ public class JsonGeneratorTest {
                 new BigDecimal("-1034567770766"),
                 new BigDecimal("-00234.6783456789"),
                 new BigDecimal("-0023400"),
+                new BigDecimal("-50.123E-15"),
                 new BigDecimal("-4.000000123e4"),
                 new BigDecimal("-0.123e-15"),
                 new BigDecimal("-0.123e+10"),
@@ -193,6 +196,7 @@ public class JsonGeneratorTest {
                 new BigDecimal("+0.123E+10"),
                 new BigDecimal("0.123E-15"),
                 new BigDecimal("4.000000123E+4"),
+                new BigDecimal("50.123E-15"),
                 new BigDecimal("14.000000123"),
                 new BigDecimal("+0023400"),
                 new BigDecimal("00234.6783456789"),

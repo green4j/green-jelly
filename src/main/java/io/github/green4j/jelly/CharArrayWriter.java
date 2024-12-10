@@ -38,7 +38,7 @@ public class CharArrayWriter implements JsonBufferedWriter {
 
         @Override
         public CharSequence subSequence(final int start, final int end) {
-            throw new UnsupportedOperationException("Not supported.");
+            throw new UnsupportedOperationException();
         }
 
         @Override
@@ -132,8 +132,9 @@ public class CharArrayWriter implements JsonBufferedWriter {
         assert array != null;
 
         makeSureRoomSize(len);
-        for (int i = start; i < len; i++) {
-            array[start + length] = data.charAt(i);
+        final int startIndex = this.start + length;
+        for (int i = 0; i < len; i++) {
+            array[startIndex + i] = data.charAt(start + i);
         }
         length += len;
     }
