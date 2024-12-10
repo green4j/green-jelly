@@ -144,13 +144,15 @@ int getErrorPosition()
 Sometimes you may need to split the process of parsing into some steps. In this case you return `false` from any of `JsonEventListener`'s callback. The parsing stops with an instance of the `Next` returned back. You call `Next.next()` until it returns `null`. For example, the following code prints each number on new line:
 
 ```java
-final AtomicLong value = new AtomicLong(0); // a mutable value
+final var valueHolder = new Object() {
+    long value;
+}; // mutable value with the final reference
 
 final JsonParser parser = new JsonParser().setListener(
    new JsonParserListenerAdaptor() {
        @Override
        public boolean onNumberValue(final JsonNumber number) {
-            value.set(number.mantissa());
+            valueHolder.value = number.mantissa();
             return false; // stop the parsing after each number
         }
     }
@@ -158,13 +160,13 @@ final JsonParser parser = new JsonParser().setListener(
 
 JsonParser.Next nextStep = parser.parse("[0,10,20,30,40,5");
 while (nextStep != null) {
-    System.out.println(value.get());
+    System.out.println(valueHolder.value);
     nextStep = nextStep.next();
 }
 
 nextStep = parser.parse("0,60,70,80,90,100]");
 while (nextStep != null) {
-    System.out.println(value.get());
+    System.out.println(valueHolder.value);
     nextStep = nextStep.next();
 }
 parser.eoj();
@@ -194,11 +196,11 @@ The library works over character based abstractions, so, it doesn't implement an
 
 At the same time, there are few specific classes to support JSON generation in different encodings if required:
 
-| Json Writer                                  | Buffer Type/Encoding                                                             |
-|----------------------------------------------|----------------------------------------------------------------------------------|
-| io.github.green4j.jelly.AsciiByteArrayWriter | Byte array of ASCII encoded data. All characters outside 0-127 range are escaped |
-| io.github.green4j.jelly.Utf8ByteArrayWriter  | Byte array of UTF-8 encoded data                                                 |
-| io.github.green4j.jelly.CharArrayWriter      | Char array. Can be used as is, or to be converted later to any other encoding    |
+| Json Writer                                    | Buffer Type/Encoding                                                             |
+|------------------------------------------------|----------------------------------------------------------------------------------|
+| `io.github.green4j.jelly.AsciiByteArrayWriter` | Byte array of ASCII encoded data. All characters outside 0-127 range are escaped |
+| `io.github.green4j.jelly.Utf8ByteArrayWriter`  | Byte array of UTF-8 encoded data                                                 |
+| `io.github.green4j.jelly.CharArrayWriter`      | Char array. Can be used as is, or to be converted later to any other encoding    |
 
 Each of the classes has its own internal mutable buffer which can be passed to IO routines after JSON is generated.
 
@@ -333,7 +335,7 @@ public class JsonParserPerformanceComparison {
         @Setup(Level.Invocation)
         public void doSetup() throws Exception {
             value = 0;
-            JsonFactory factory = new JsonFactory();
+            final JsonFactory factory = new JsonFactory();
             parser = factory.createParser(JSON);
         }
 
@@ -403,7 +405,7 @@ public class JsonParserPerformanceComparison {
 </p>
 </details>
 
-##JSON Value
+## JSON Value
 
 Sometimes we don't worry about memory consumption and CPU utilization, but we need a simple way to work 
 with JSON documents. And we would prefer to don't introduce complex POJO structures and involve object mapping. 
@@ -412,21 +414,21 @@ package `io.github.green4j.jelly.simple`.
 
 The `io.github.green4j.jelly.simple.JsonValue` class is the main class to construct a representation of a JSON document:
 ```
-JsonValue json = JsonValue.newObject();
-JsonObject user = json.asObject();
+final JsonValue json = JsonValue.newObject();
+final JsonObject user = json.asObject();
 user.putString("name", "Mike");
 user.putInteger("age", 23);
-JsonArray rates = user.putArray("rates");
+final JsonArray rates = user.putArray("rates");
 rates.addInteger(10);
 rates.addInteger(8);
 ```
 
 A `JsonValue` can be serialized with a `io.github.green4j.jelly.simple.JsonWriter` or with a `java.io.Writer`:
 ```
-JsonValue json = ...
+final JsonValue json = ...
 
-StringBuilder output = new StringBuilder();
-JsonWriter jsonWriter = new JsonWriterGenerator(new JsonGenerator(output));
+final StringBuilder output = new StringBuilder();
+final JsonWriter jsonWriter = new JsonWriterGenerator(new JsonGenerator(output));
 json.toJsonAndEoj(jsonWriter);
 System.out.println(output);
 
@@ -437,8 +439,8 @@ System.out.println(stringWriter);
 
 To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
 ```
-JsonValueParser parser = new JsonValueParser();
-JsonValue json = parser.parseAndEoj("{ \"name\": \"Mike\", \"age\": 23 }");
+final JsonValueParser parser = new JsonValueParser();
+final JsonValue json = parser.parseAndEoj("{ \"name\": \"Mike\", \"age\": 23 }");
 System.out.println(json);   
 ```
 
