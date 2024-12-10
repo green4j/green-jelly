@@ -94,7 +94,7 @@ class Utf8ByteArrayWriterTest {
     @Test
     void testAppendCharSequenceWithNonAscii() {
         final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(10);
-        writer.append("Café"); // append a string with non-ASCII character
+        writer.append("Caf\u00e9"); // append a string with non-ASCII character
         assertEquals(5, writer.length());
         assertEquals("Café", writer.toString());
     }
