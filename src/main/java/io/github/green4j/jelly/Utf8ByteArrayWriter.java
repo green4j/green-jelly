@@ -25,7 +25,7 @@ package io.github.green4j.jelly;
 
 import java.nio.charset.StandardCharsets;
 
-public class Utf8ByteArrayWriter implements ClearableBufferingWriter {
+public class Utf8ByteArrayWriter implements ClearableByteArrayBufferingWriter {
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
@@ -87,14 +87,17 @@ public class Utf8ByteArrayWriter implements ClearableBufferingWriter {
         this.length = 0;
     }
 
+    @Override
     public byte[] array() {
         return array;
     }
 
+    @Override
     public int start() {
         return start;
     }
 
+    @Override
     public int length() {
         return length;
     }

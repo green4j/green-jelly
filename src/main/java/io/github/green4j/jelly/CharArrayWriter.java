@@ -23,7 +23,9 @@
  */
 package io.github.green4j.jelly;
 
-public class CharArrayWriter implements ClearableBufferingWriter {
+public class CharArrayWriter implements
+        ClearableBufferingWriter,
+        CharArray {
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
@@ -85,14 +87,17 @@ public class CharArrayWriter implements ClearableBufferingWriter {
         this.length = 0;
     }
 
+    @Override
     public char[] array() {
         return array;
     }
 
+    @Override
     public int start() {
         return start;
     }
 
+    @Override
     public int length() {
         return length;
     }

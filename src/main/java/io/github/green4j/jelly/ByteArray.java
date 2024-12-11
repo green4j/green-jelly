@@ -23,50 +23,10 @@
  */
 package io.github.green4j.jelly;
 
-public class CharArrayCharSequence implements
-        CharSequence,
-        CharArray {
-    private final char[] chars;
-    private int length;
+public interface ByteArray {
+    byte[] array();
 
-    public CharArrayCharSequence(final int size) {
-        this.chars = new char[size];
-    }
+    int start();
 
-    public CharArrayCharSequence(final char[] chars, final int length) {
-        this.chars = chars;
-        this.length = length;
-    }
-
-    public void setLength(final int length) {
-        this.length = length;
-    }
-
-    @Override
-    public char[] array() {
-        return chars;
-    }
-
-    @Override
-    public int start() {
-        return 0;
-    }
-
-    @Override
-    public int length() {
-        return length;
-    }
-
-    @Override
-    public char charAt(final int index) {
-        if (index >= length) {
-            throw new ArrayIndexOutOfBoundsException(index + " with length: " + length);
-        }
-        return chars[index];
-    }
-
-    @Override
-    public CharSequence subSequence(final int start, final int end) {
-        throw new UnsupportedOperationException("Not implemented yet");
-    }
+    int length();
 }
