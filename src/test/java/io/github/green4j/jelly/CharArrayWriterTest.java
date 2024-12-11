@@ -72,7 +72,7 @@ class CharArrayWriterTest {
     @Test
     void testFrameAppend() {
         final CharArrayWriter writer = new CharArrayWriter(10);
-        final JsonBufferedWriter.Frame frame = writer.append(5);
+        final BufferingWriter.Frame frame = writer.append(5);
         frame.setCharAt(0, 'X');
         frame.setCharAt(1, 'Y');
         frame.setCharAt(2, 'Z');

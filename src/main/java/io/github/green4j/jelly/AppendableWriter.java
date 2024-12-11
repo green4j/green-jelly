@@ -25,8 +25,7 @@ package io.github.green4j.jelly;
 
 import java.io.IOException;
 
-public final class AppendableWriter<T extends Appendable> implements JsonBufferedWriter {
-
+public final class AppendableWriter<T extends Appendable> implements BufferingWriter {
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {

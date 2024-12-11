@@ -23,8 +23,7 @@
  */
 package io.github.green4j.jelly;
 
-public class CharArrayWriter implements JsonBufferedWriter {
-
+public class CharArrayWriter implements ClearableBufferingWriter {
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
@@ -98,10 +97,16 @@ public class CharArrayWriter implements JsonBufferedWriter {
         return length;
     }
 
+    @Override
     public void clear() {
         length = 0;
     }
 
+    /**
+     * Returns a Frame of required size starting from the current position.
+     * @param size of the buffer to pre-allocate
+     * @return a Frame
+     */
     @Override
     public Frame append(final int size) {
         assert size > 0;

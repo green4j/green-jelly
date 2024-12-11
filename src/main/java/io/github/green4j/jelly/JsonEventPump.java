@@ -27,7 +27,7 @@ public class JsonEventPump implements JsonParserListener {
     protected final StringBuilder memberName = new StringBuilder();
     protected final JsonGenerator output;
 
-    public JsonEventPump(final JsonBufferedWriter output) {
+    public JsonEventPump(final BufferingWriter output) {
         this.output = new JsonGenerator(output);
     }
 

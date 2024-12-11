@@ -25,14 +25,10 @@ package io.github.green4j.jelly;
 
 import java.nio.charset.StandardCharsets;
 
-public final class AsciiByteArrayWriter implements JsonBufferedWriter {
-
+public final class AsciiByteArrayWriter implements ClearableBufferingWriter {
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
-            assert c > 0x1f // all chars <= 0x1f are expected to be encoded to \\uXXXX by JsonGenerator already
-                    && c < 0x80; // only ASCII supported by the Frame
-
             array[frameStart + index] = (byte) c;
         }
 
@@ -103,10 +99,17 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
         return length;
     }
 
+    @Override
     public void clear() {
         length = 0;
     }
 
+    /**
+     * Returns a Frame of required size starting from the current position.
+     * The Frame supports only single byte-length characters.
+     * @param size of the buffer to pre-allocate
+     * @return a Frame
+     */
     @Override
     public Frame append(final int size) {
         assert size > 0;
@@ -121,8 +124,6 @@ public final class AsciiByteArrayWriter implements JsonBufferedWriter {
     @Override
     public void append(final char c) {
         assert array != null;
-
-        assert c > 0x1f; // all chars <= 0x1f are expected to be encoded to \\uXXXX by JsonGenerator already
 
         int charIndex = start + length;
 

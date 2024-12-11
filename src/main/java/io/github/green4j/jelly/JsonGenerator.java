@@ -103,7 +103,7 @@ public final class JsonGenerator {
     private int[] scopeStack = new int[8];
     private int scopeStackDepth;
 
-    private JsonBufferedWriter output;
+    private BufferingWriter output;
 
     public JsonGenerator() {
         this(true);
@@ -113,11 +113,11 @@ public final class JsonGenerator {
         this.indent = indent;
     }
 
-    public JsonGenerator(final JsonBufferedWriter output) {
+    public JsonGenerator(final BufferingWriter output) {
         this(output, true);
     }
 
-    public JsonGenerator(final JsonBufferedWriter output, final boolean indent) {
+    public JsonGenerator(final BufferingWriter output, final boolean indent) {
         this(indent);
         this.output = output;
     }
@@ -127,7 +127,7 @@ public final class JsonGenerator {
     }
 
     public JsonGenerator(final AppendableWriter<?> output, final boolean indent) {
-        this((JsonBufferedWriter) output, indent);
+        this((BufferingWriter) output, indent);
     }
 
     public JsonGenerator(final Appendable output) {
@@ -142,7 +142,7 @@ public final class JsonGenerator {
         return indent;
     }
 
-    public JsonGenerator setOutput(final JsonBufferedWriter output) {
+    public JsonGenerator setOutput(final BufferingWriter output) {
         this.output = output;
         return this;
     }
@@ -156,7 +156,7 @@ public final class JsonGenerator {
     }
 
     public void objectMember(final CharSequence name, final int start, final int len) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -229,7 +229,7 @@ public final class JsonGenerator {
     }
 
     public void numberValue(final long mantissa, final int exp) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -286,7 +286,7 @@ public final class JsonGenerator {
     }
 
     private void writeStructureStarted(final char leftBracket, final int newState) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -309,7 +309,7 @@ public final class JsonGenerator {
     }
 
     private void writeStructureEnded(final char rightBracket) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -325,7 +325,7 @@ public final class JsonGenerator {
     }
 
     private void writeStringQuoted(final CharSequence value, final int start, final int len, final boolean escaping) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -388,7 +388,7 @@ public final class JsonGenerator {
     }
 
     private void writeStringDirect(final String value) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -402,7 +402,7 @@ public final class JsonGenerator {
     }
 
     private void writeNumberQuoted(final long mantissa, final int exp) {
-        final JsonBufferedWriter out = output;
+        final BufferingWriter out = output;
 
         assert out != null;
 
@@ -423,7 +423,7 @@ public final class JsonGenerator {
         afterValueAdded(scope);
     }
 
-    private void beforeLiteralAdded(final int scope, final JsonBufferedWriter out) {
+    private void beforeLiteralAdded(final int scope, final BufferingWriter out) {
         switch (scope) {
             case STATE_ARRAY_ITEM:
                 out.append(',');
@@ -454,7 +454,7 @@ public final class JsonGenerator {
         }
     }
 
-    private void indent(final JsonBufferedWriter out, final boolean ending) {
+    private void indent(final BufferingWriter out, final boolean ending) {
         final int depth = scopeStackDepth;
         if (depth == 0) {
             if (ending) {
@@ -506,7 +506,7 @@ public final class JsonGenerator {
         scopeStack[scopeStackDepth - 1] = scope;
     }
 
-    private static void writeLongNumber(final JsonBufferedWriter out, final long mantissa) {
+    private static void writeLongNumber(final BufferingWriter out, final long mantissa) {
         long mts = mantissa;
         if (mts == Long.MIN_VALUE) {
             out.append("-9223372036854775808");
@@ -531,7 +531,7 @@ public final class JsonGenerator {
     }
 
     private static void writeLongValueToEndOfTheFrame(
-            final JsonBufferedWriter.Frame buf,
+            final BufferingWriter.Frame buf,
             final long mantissa,
             final char sign) {
 
@@ -571,7 +571,7 @@ public final class JsonGenerator {
     }
 
     private static void writeDecimalNumber(
-            final JsonBufferedWriter out,
+            final BufferingWriter out,
             final long mantissa,
             final int exp) {
 
@@ -633,7 +633,7 @@ public final class JsonGenerator {
                     + 2 + expNumOfDigits; // and 'e' and the sign and exponent's numbers
         }
 
-        final JsonBufferedWriter.Frame buf = out.append(size);
+        final BufferingWriter.Frame buf = out.append(size);
 
         int currentCharIndex = size;
 

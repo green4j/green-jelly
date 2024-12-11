@@ -23,7 +23,7 @@
  */
 package io.github.green4j.jelly;
 
-public interface JsonBufferedWriter {
+public interface BufferingWriter {
     /**
      * Frame is a pre-allocated part of a buffer.
      * The Frame provides ability of writing by index within a some limited space.
