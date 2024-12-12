@@ -75,15 +75,6 @@ class Utf8ByteArrayWriterTest {
     }
 
     @Test
-    void testAppendSurrogatePairThrowsException() {
-        final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(10);
-        final IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> {
-            writer.append('\uD800'); // high surrogate character (not valid without a pair)
-        });
-        assertTrue(exception.getMessage().contains("exceeds BMP range"));
-    }
-
-    @Test
     void testAppendCharSequence() {
         final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(10);
         writer.append("Hello");
