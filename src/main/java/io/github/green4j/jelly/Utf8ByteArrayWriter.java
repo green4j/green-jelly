@@ -150,6 +150,7 @@ public class Utf8ByteArrayWriter implements ClearableByteArrayBufferingWriter {
             array[charIndex++] = (byte) (0xe0 | ((c >> 12)));
             array[charIndex++] = (byte) (0x80 | ((c >> 6) & 0x3f));
             array[charIndex] = (byte) (0x80 | (c & 0x3f));
+            return;
         }
 
         throw new IllegalArgumentException("Char with the code " + c + " exceeds BMP range. Use a surrogate pair");
