@@ -134,6 +134,10 @@ public class CharArrayWriter implements
 
     @Override
     public void append(final CharSequence data) {
+        if (data == null) {
+            appendNull();
+            return;
+        }
         append(data, 0, data.length());
     }
 
@@ -151,6 +155,16 @@ public class CharArrayWriter implements
 
     @Override
     public void flush() {
+    }
+
+    private void appendNull() {
+        makeSureRoomSize(4);
+        int charIndex = start + length;
+        array[charIndex++] = 'n';
+        array[charIndex++] = 'u';
+        array[charIndex++] = 'l';
+        array[charIndex] = 'l';
+        length += 4;
     }
 
     private void makeSureRoomSize(final int roomSize) {

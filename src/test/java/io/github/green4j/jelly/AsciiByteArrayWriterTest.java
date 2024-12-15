@@ -52,6 +52,14 @@ class AsciiByteArrayWriterTest {
     }
 
     @Test
+    void testAppendNull() {
+        final AsciiByteArrayWriter writer = new AsciiByteArrayWriter(10);
+        writer.append(null);
+        assertEquals(4, writer.length());
+        assertEquals("null", writer.toString());
+    }
+
+    @Test
     void testAppendSingleChar() {
         final AsciiByteArrayWriter writer = new AsciiByteArrayWriter(10);
         writer.append('A');

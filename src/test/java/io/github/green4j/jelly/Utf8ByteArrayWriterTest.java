@@ -53,6 +53,14 @@ class Utf8ByteArrayWriterTest {
     }
 
     @Test
+    void testAppendNull() {
+        final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(10);
+        writer.append(null);
+        assertEquals(4, writer.length());
+        assertEquals("null", writer.toString());
+    }
+
+    @Test
     void testAppendAsciiChar() {
         final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(10);
         writer.append('A'); // append an ASCII character

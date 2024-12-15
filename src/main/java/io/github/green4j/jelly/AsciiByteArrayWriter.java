@@ -138,7 +138,7 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
             return;
         }
 
-        length = length + 6;
+        length += 6;
         array[charIndex++] = (byte) '\\';
         array[charIndex++] = (byte) 'u';
 
@@ -165,6 +165,10 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
 
     @Override
     public void append(final CharSequence data) {
+        if (data == null) {
+            appendNull();
+            return;
+        }
         append(data, 0, data.length());
     }
 
@@ -177,6 +181,16 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
 
     @Override
     public void flush() {
+    }
+
+    private void appendNull() {
+        makeSureRoomSize(4);
+        int charIndex = start + length;
+        array[charIndex++] = 'n';
+        array[charIndex++] = 'u';
+        array[charIndex++] = 'l';
+        array[charIndex] = 'l';
+        length += 4;
     }
 
     private void makeSureRoomSize(final int roomSize) {

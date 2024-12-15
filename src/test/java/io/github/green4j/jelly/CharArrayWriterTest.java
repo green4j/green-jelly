@@ -46,6 +46,14 @@ class CharArrayWriterTest {
     }
 
     @Test
+    void testAppendNull() {
+        final CharArrayWriter writer = new CharArrayWriter(5);
+        writer.append(null);
+        assertEquals(4, writer.length());
+        assertEquals("null", writer.toString());
+    }
+
+    @Test
     void testAppendChar() {
         final CharArrayWriter writer = new CharArrayWriter(5);
         writer.append('A');
