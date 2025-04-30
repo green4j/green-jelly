@@ -113,6 +113,21 @@ public class JsonGeneratorTest {
             generator.eoj();
             assertEquals("\"" + escape(string) + "\"", text.toString());
         }
+        // sub-string (head)
+        text.setLength(0);
+        generator.stringValue("foobar", 0, 3, false);
+        generator.eoj();
+        assertEquals("\"foo\"", text.toString());
+        // sub-string (tail)
+        text.setLength(0);
+        generator.stringValue("foobar", 3, 3, false);
+        generator.eoj();
+        assertEquals("\"bar\"", text.toString());
+        // sub-string (middle)
+        text.setLength(0);
+        generator.stringValue("foobar", 1, 2, false);
+        generator.eoj();
+        assertEquals("\"oo\"", text.toString());
     }
 
     @Test

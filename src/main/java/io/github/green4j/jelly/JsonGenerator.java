@@ -379,7 +379,7 @@ public final class JsonGenerator {
                 }
             }
         } else {
-            out.append(value, start, start + len);
+            out.append(value, start, len);
         }
 
         out.append("\"");
