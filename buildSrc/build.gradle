@@ -1,0 +1,19 @@
+def rootProps = new Properties()
+file("${rootDir.parentFile}/gradle.properties").withInputStream {
+    rootProps.load(it)
+}
+rootProps.each { k, v ->
+    if (!project.hasProperty(k)) {
+        ext[k] = v
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    // the build parses the Central Portal's JSON with a released green-jelly, not the one being built
+    implementation "io.github.green4j:green-jelly:$buildGreenJellyVersion"
+}

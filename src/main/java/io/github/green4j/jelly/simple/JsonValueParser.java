@@ -69,7 +69,7 @@ public class JsonValueParser {
         return eoj();
     }
 
-    private class JsonDeserializer implements JsonParserListener {
+    private final class JsonDeserializer implements JsonParserListener {
         @Override
         public void onJsonStarted() {
         }

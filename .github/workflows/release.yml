@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_mode:
+        description: "Publishing mode"
+        required: true
+        default: snapshot
+        type: choice
+        options:
+          - snapshot
+          - release
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to Sonatype
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # What the published artifacts are compiled and documented with. --release 11 pins the bytecode on any
+      # JDK, but a release is built by the javac of the version it is released for.
+      - name: Set up JDK 11 (release baseline)
+        id: release-jdk
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      # Gradle 8 no longer runs on JDK 11, so it gets its own JDK and the baseline stays a toolchain.
+      - name: Set up JDK 21 to run Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Resolve publish mode
+        id: mode
+        shell: bash
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
+            mode="release"
+          else
+            mode="${{ inputs.publish_mode }}"
+          fi
+          echo "publish_mode=${mode}" >> "${GITHUB_OUTPUT}"
+
+      - name: Validate version and secrets
+        shell: bash
+        env:
+          PUBLISH_MODE: ${{ steps.mode.outputs.publish_mode }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SIGNING_GPG_SECRET_KEY: ${{ secrets.SIGNING_GPG_SECRET_KEY }}
+          SIGNING_GPG_PASSWORD: ${{ secrets.SIGNING_GPG_PASSWORD }}
+        run: |
+          version="$(tr -d '[:space:]' < version.txt)"
+          if [[ -z "${version}" ]]; then
+            echo "version.txt is empty"
+            exit 1
+          fi
+
+          # A tag is what a release is found by afterwards, so it has to name what was actually published.
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_NAME}" != "v${version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match version.txt: expected v${version}"
+            exit 1
+          fi
+
+          if [[ -z "${SONATYPE_USERNAME}" || -z "${SONATYPE_PASSWORD}" ]]; then
+            echo "Missing SONATYPE_USERNAME or SONATYPE_PASSWORD secret"
+            exit 1
+          fi
+
+          if [[ "${PUBLISH_MODE}" == "snapshot" ]]; then
+            if [[ "${version}" != *-SNAPSHOT ]]; then
+              echo "Snapshot mode requires version ending with -SNAPSHOT. Current version: ${version}"
+              exit 1
+            fi
+          else
+            if [[ "${version}" == *-SNAPSHOT ]]; then
+              echo "Release mode requires non-snapshot version. Current version: ${version}"
+              exit 1
+            fi
+            if [[ -z "${SIGNING_GPG_SECRET_KEY}" || -z "${SIGNING_GPG_PASSWORD}" ]]; then
+              echo "Release mode requires SIGNING_GPG_SECRET_KEY and SIGNING_GPG_PASSWORD secrets"
+              exit 1
+            fi
+          fi
+
+      - name: Publish artifacts
+        shell: bash
+        env:
+          PUBLISH_MODE: ${{ steps.mode.outputs.publish_mode }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+          SIGNING_GPG_SECRET_KEY: ${{ secrets.SIGNING_GPG_SECRET_KEY }}
+          SIGNING_GPG_PASSWORD: ${{ secrets.SIGNING_GPG_PASSWORD }}
+          BASELINE_JDK: ${{ steps.release-jdk.outputs.path }}
+        run: |
+          if [[ "${PUBLISH_MODE}" == "snapshot" ]]; then
+            ./gradlew --no-daemon --stacktrace \
+              "-Dorg.gradle.java.installations.paths=${BASELINE_JDK}" \
+              -PbuildJavaVersion=11 \
+              clean build publish
+          else
+            ./gradlew --no-daemon --stacktrace \
+              "-Dorg.gradle.java.installations.paths=${BASELINE_JDK}" \
+              -PbuildJavaVersion=11 \
+              clean build publish uploadArtifactsToSonatypeCentralPortal
+          fi

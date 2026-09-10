@@ -1,7 +1,9 @@
+import io.github.green4j.jelly.build.SonatypeCentralPortalUploadRepositoryTask
+
 /**
  * MIT License
  *
- * Copyright (c) 2018-2024 Anatoly Gudkov and others.
+ * Copyright (c) 2018-2026 Anatoly Gudkov and others.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +32,8 @@ plugins {
     id 'jacoco'
 }
 
+def projectVersion = file('version.txt').text.trim()
+
 group = projectGroup
 version = projectVersion
 
@@ -49,12 +53,19 @@ def getConfigProperty(final String propertyName) {
 ext {
     jellySrcJavaVersion = JavaVersion.toVersion(srcJavaVersion)
 
-    isRelease = !version.endsWith('-SNAPSHOT')
+    // The JDK everything but Gradle itself runs on: javac, the tests, javadoc, checkstyle and the jacoco
+    // agent. The CI matrix sets it per job, so a JDK Gradle cannot be started on - Java 25 - is still swept.
+    buildJavaVersion = (project.findProperty('buildJavaVersion')
+            ?: JavaVersion.current().majorVersion) as Integer
 
-    ossrhReleasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
-    ossrhSnapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
-    ossrhUsername = getConfigProperty('OSSRH_USERNAME')
-    ossrhPassword = getConfigProperty('OSSRH_PASSWORD')
+    isRelease = !projectVersion.endsWith('-SNAPSHOT')
+
+    sonatypeReleasesRepoUrl = isRelease
+            ? 'https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/'
+            : 'https://central.sonatype.com/repository/maven-snapshots/'
+
+    sonatypeUsername = getConfigProperty('SONATYPE_USERNAME')
+    sonatypePassword = getConfigProperty('SONATYPE_PASSWORD')
 
     signingKey = getConfigProperty('SIGNING_GPG_SECRET_KEY')    // ascii-armored secret key
     signingPassword = getConfigProperty('SIGNING_GPG_PASSWORD') // plain text
@@ -101,17 +112,46 @@ dependencies {
     checkstyle "com.puppycrawl.tools:checkstyle:${checkstyleVersion}"
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(buildJavaVersion)
+    }
+
+    withSourcesJar()
+    withJavadocJar()
+}
+
 checkstyle {
     toolVersion = "${checkstyleVersion}"
 }
 
-compileJava {
-    sourceCompatibility = jellySrcJavaVersion
-    targetCompatibility = jellySrcJavaVersion
+jacoco {
+    toolVersion = "${jacocoVersion}"
+}
 
-    options.compilerArgs.addAll(['-Xlint:all', '-Werror']) // enable all warnings and treat them as errors
+compileJava {
+    // --release rather than -source/-target: it also pins the API, and it keeps the "bootstrap class path
+    // not set" note - which -Werror turns into a failure - off every JDK newer than the released one.
+    options.release = jellySrcJavaVersion.majorVersion as Integer
+
+    // -Xlint:all means a different set on every JDK. These two categories arrive on JDKs newer than the
+    // released baseline and fire on code which is correct as written, so they are named out rather than
+    // letting -Werror fail a build the release JDK passes.
+    def lint = ['all']
+    if (buildJavaVersion >= 21) {
+        lint << '-this-escape'
+    }
+    if (buildJavaVersion >= 22) {
+        lint << '-dangling-doc-comments'
+    }
+
+    options.compilerArgs.addAll(["-Xlint:${lint.join(',')}".toString(), '-Werror'])
     options.encoding = 'UTF-8'
     options.deprecation = true
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
 }
 
 jar {
@@ -147,19 +187,12 @@ check {
 
 javadoc {
     title = "<h1>${projectName}</h1>"
-    options.bottom = "<i>Copyright &#169; 2018-2024 ${projectAuthor}. All Rights Reserved.</i>"
+    options.bottom = "<i>Copyright &#169; 2018-2026 ${projectAuthor}. All Rights Reserved.</i>"
     options.encoding = 'UTF-8'
     options.docEncoding = 'UTF-8'
     options.charSet = 'UTF-8'
-    if (JavaVersion.current().isJava10Compatible()) {
-        options.addBooleanOption 'html5', true
-    }
+    options.addBooleanOption 'html5', true
     options.addStringOption('Xdoclint:all,-missing', '-quiet')
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 publishing {
@@ -173,10 +206,10 @@ publishing {
     repositories {
         maven {
             name = 'MavenCentral'
-            url(isRelease ? ossrhReleasesRepoUrl : ossrhSnapshotsRepoUrl)
+            url = sonatypeReleasesRepoUrl
             credentials {
-                username = ossrhUsername
-                password = ossrhPassword
+                username = sonatypeUsername
+                password = sonatypePassword
             }
         }
     }
@@ -189,6 +222,15 @@ signing {
     sign publishing.publications.greenJelly
 }
 
-tasks.withType(Sign) {
-    onlyIf { isRelease }
+tasks.withType(Sign).configureEach {
+    onlyIf {
+        isRelease && gradle.taskGraph.hasTask(tasks.publish)
+    }
+}
+
+tasks.register('uploadArtifactsToSonatypeCentralPortal', SonatypeCentralPortalUploadRepositoryTask) {
+    portalUsername.set(sonatypeUsername)
+    portalPassword.set(sonatypePassword)
+    groupId.set(projectGroup)
+    snapshotRelease.set(!isRelease)
 }

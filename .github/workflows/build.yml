@@ -1,42 +1,54 @@
-name: Build CI
+name: Build
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
   pull_request:
-    types: [opened, synchronize]
     branches:
       - master
-env:
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.java.installations.auto-detect=false -Dorg.gradle.warning.mode=fail"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: Java ${{ matrix.java }} (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+  gradle-build:
+    name: Gradle Build (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        java: [ '11', '17' ]
-        os: [ 'ubuntu-24.04', 'windows-latest' ]
+        java: [ '11', '17', '21', '25' ]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # javac, the tests, javadoc, checkstyle and the jacoco agent run on this one, as a toolchain.
+      - name: Set up target JDK ${{ matrix.java }}
+        id: target-jdk
+        uses: actions/setup-java@v4
         with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('**/gradle/wrapper/gradle-wrapper.properties') }}
-      - name: Setup java
-        uses: actions/setup-java@v2
-        with:
-          distribution: 'zulu'
+          distribution: temurin
           java-version: ${{ matrix.java }}
-      - name: Build with Gradle
-        run: ./gradlew
+
+      # Gradle itself runs on this one, and it is the last setup-java step, so it owns JAVA_HOME. Gradle 8
+      # cannot be started on a JDK newer than 24, which is the whole reason the matrix JDK stays a toolchain.
+      - name: Set up JDK 21 to run Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: Build
+        run: >
+          ./gradlew --no-daemon --stacktrace
+          -Dorg.gradle.java.installations.paths=${{ steps.target-jdk.outputs.path }}
+          -PbuildJavaVersion=${{ matrix.java }}
+          clean build
