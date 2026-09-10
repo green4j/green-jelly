@@ -1,6 +1,9 @@
-.gradle/
+# anchored: an unanchored 'build/' also swallows source directories of a package named 'build'
+/.gradle/
+/buildSrc/.gradle/
 
-build/
+/build/
+/buildSrc/build/
 .nb-gradle/
 
 .idea
