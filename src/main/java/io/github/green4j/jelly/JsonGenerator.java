@@ -174,7 +174,7 @@ public final class JsonGenerator {
         }
 
         out.append('\"');
-        out.append(name, start, start + len);
+        out.append(name, start, len);
         out.append("\":");
 
         replaceScope(STATE_OBJECT_MEMBER_NAME);

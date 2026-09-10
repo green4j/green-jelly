@@ -75,11 +75,11 @@ public class Utf8ByteArrayWriter implements ClearableByteArrayBufferingWriter {
         set(array, start);
     }
 
-    public void set(final byte[] array) {
+    public final void set(final byte[] array) {
         set(array, 0);
     }
 
-    public void set(final byte[] array, final int start) {
+    public final void set(final byte[] array, final int start) {
         assert array.length > start;
 
         this.array = array;
