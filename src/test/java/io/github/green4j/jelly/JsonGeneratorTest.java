@@ -128,6 +128,11 @@ public class JsonGeneratorTest {
         generator.stringValue("foobar", 1, 2, false);
         generator.eoj();
         assertEquals("\"oo\"", text.toString());
+        // sub-string (escaping)
+        text.setLength(0);
+        generator.stringValue("foo\tbar", 2, 3, true);
+        generator.eoj();
+        assertEquals("\"" + escape("o\tb") + "\"", text.toString());
     }
 
     @Test
@@ -407,5 +412,42 @@ public class JsonGeneratorTest {
                         + "\"prop4\":false,\"prop5\":null,\"prop6\":{\"prop6_1\":{\"prop6_1_1\":"
                         + "[\"\\test1\",\"\\test2\",\"\\test3\"]}}}",
                 writer.output().toString());
+
+        // sub-string member names
+        writer.output().setLength(0);
+        generator.startObject();
+        generator.objectMember("foobar", 0, 3);
+        generator.numberValue(100);
+        generator.objectMember("foobar", 3, 3);
+        generator.numberValue(200);
+        generator.objectMember("foobar", 1, 2);
+        generator.stringValue("foobar", 1, 4);
+        generator.endObject();
+        generator.eoj();
+        assertEquals("{\"foo\":100,\"bar\":200,\"oo\":\"ooba\"}", writer.output().toString());
+    }
+
+    @Test
+    public void subStringTest() {
+        final CharArrayWriter writer = new CharArrayWriter(64);
+        final JsonGenerator generator = new JsonGenerator(false);
+        generator.setOutput(writer);
+
+        // unescaping
+        generator.startObject();
+        generator.objectMember("foobar", 0, 3);
+        generator.stringValue("foobar", 3, 3);
+        generator.endObject();
+        generator.eoj();
+        assertEquals("{\"foo\":\"bar\"}", writer.toString());
+
+        // escaping
+        writer.clear();
+        generator.startObject();
+        generator.objectMember("foobar", 1, 2);
+        generator.stringValue("foo\tbar", 2, 3, true);
+        generator.endObject();
+        generator.eoj();
+        assertEquals("{\"oo\":\"" + escape("o\tb") + "\"}", writer.toString());
     }
 }

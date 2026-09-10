@@ -75,11 +75,11 @@ public class CharArrayWriter implements
         set(array, start);
     }
 
-    public void set(final char[] array) {
+    public final void set(final char[] array) {
         set(array, 0);
     }
 
-    public void set(final char[] array, final int start) {
+    public final void set(final char[] array, final int start) {
         assert array.length > start;
 
         this.array = array;
