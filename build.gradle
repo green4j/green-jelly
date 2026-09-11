@@ -53,8 +53,9 @@ def getConfigProperty(final String propertyName) {
 ext {
     jellySrcJavaVersion = JavaVersion.toVersion(srcJavaVersion)
 
-    // The JDK everything but Gradle itself runs on: javac, the tests, javadoc, checkstyle and the jacoco
-    // agent. The CI matrix sets it per job, so a JDK Gradle cannot be started on - Java 25 - is still swept.
+    // The JDK javac, the tests, javadoc, checkstyle and the jacoco agent run on. CI just runs Gradle itself
+    // on the JDK of the matrix job, so this defaults to it; the property is for building against another
+    // JDK locally without switching JAVA_HOME.
     buildJavaVersion = (project.findProperty('buildJavaVersion')
             ?: JavaVersion.current().majorVersion) as Integer
 
