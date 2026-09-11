@@ -118,12 +118,63 @@ public final class JsonParser {
 
     public static final long MAX_MANTISSA_VALUE = MAX_MANTISSA_BASE * 10 + 9;
 
+    private static final ThreadLocal<StringBuilder> LAST_OVERFLOWN_NUMBER =
+            ThreadLocal.withInitial(StringBuilder::new);
+
+    /**
+     * The full decimal representation of the last number which overflowed the mantissa while
+     * being parsed with {@link #parseNumber(CharSequence, MutableJsonNumber)} by the current thread.
+     *
+     * <p>The content is valid only right after a call of {@link #parseNumber(CharSequence, MutableJsonNumber)}
+     * which returned {@code true}. It's a well-formed decimal literal, so it can be passed to
+     * {@code new java.math.BigDecimal(CharSequence)} as is.
+     *
+     * @return the buffer with the text of the last overflown number
+     */
+    public static CharSequence lastOverflownNumber() {
+        return LAST_OVERFLOWN_NUMBER.get();
+    }
+
+    /**
+     * Parses a number value and stores the result into the given {@link MutableJsonNumber}.
+     *
+     * <p>If the mantissa of the number doesn't fit into a {@code long}, the number is truncated
+     * (see {@link #MAX_MANTISSA_VALUE}) and the full decimal representation of the number is stored
+     * into a thread local buffer available with {@link #lastOverflownNumber()}.
+     *
+     * @param data the text of the number
+     * @param to the result
+     * @return {@code true} if the mantissa has been overflown
+     */
     public static boolean parseNumber(final CharSequence data, final MutableJsonNumber to) {
+        return parseNumber(data, to, null);
+    }
+
+    /**
+     * Parses a number value and stores the result into the given {@link MutableJsonNumber}.
+     *
+     * <p>If the mantissa of the number doesn't fit into a {@code long}, the number is truncated
+     * (see {@link #MAX_MANTISSA_VALUE}) and the full decimal representation of the number is stored
+     * into {@code overflownNumber}. The text is a well-formed decimal literal, so it can be passed to
+     * {@code new java.math.BigDecimal(CharSequence)} as is. The buffer is touched only when the
+     * overflow happens, so the normal path of the parsing doesn't pay for this fallback.
+     *
+     * @param data the text of the number
+     * @param to the result
+     * @param overflownNumber the buffer to store the text of the number into if the mantissa is overflown.
+     *                        If {@code null}, the thread local buffer, available with
+     *                        {@link #lastOverflownNumber()}, is used
+     * @return {@code true} if the mantissa has been overflown
+     */
+    public static boolean parseNumber(final CharSequence data,
+                                      final MutableJsonNumber to,
+                                      final StringBuilder overflownNumber) {
         int currentLexState = LEXEMA_READY;
 
         int numberMantissaExp = 0;
         int numberMinuses = 0;
         boolean numberOverflow = false;
+        StringBuilder overflown = overflownNumber;
 
         final int len = data.length();
 
@@ -172,10 +223,15 @@ public final class JsonParser {
                                     c = data.charAt(pos);
                                     if (c >= '0' && c <= '9') {
                                         final long m = to.mantissa();
-                                        numberOverflow |= m > MAX_MANTISSA_BASE;
-                                        if (!numberOverflow) {
+                                        if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
                                             to.setMantissa(m * 10 + (c - '0'));
+                                        } else if (!numberOverflow) {
+                                            numberOverflow = true;
+                                            overflown = startOverflownNumber(overflown, m, numberMinuses,
+                                                    false, numberMantissaExp, c);
+                                            numberMantissaExp++;
                                         } else {
+                                            overflown.append(c);
                                             numberMantissaExp++;
                                         }
                                         if (++pos == len) {
@@ -185,6 +241,9 @@ public final class JsonParser {
                                     }
                                     switch (c) {
                                         case '.':
+                                            if (numberOverflow) {
+                                                overflown.append('.');
+                                            }
                                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
                                             break _next_char;
                                         case 'e':
@@ -208,10 +267,15 @@ public final class JsonParser {
                     while (true) {
                         if (c >= '0' && c <= '9') {
                             final long m = to.mantissa();
-                            numberOverflow |= m > MAX_MANTISSA_BASE;
-                            if (!numberOverflow) {
+                            if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
                                 to.setMantissa(m * 10 + (c - '0'));
+                            } else if (!numberOverflow) {
+                                numberOverflow = true;
+                                overflown = startOverflownNumber(overflown, m, numberMinuses,
+                                        false, numberMantissaExp, c);
+                                numberMantissaExp++;
                             } else {
+                                overflown.append(c);
                                 numberMantissaExp++;
                             }
                             if (++pos == len) {
@@ -222,6 +286,9 @@ public final class JsonParser {
                         }
                         switch (c) {
                             case '.':
+                                if (numberOverflow) {
+                                    overflown.append('.');
+                                }
                                 currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
                                 break _next_char;
                             case 'e':
@@ -258,10 +325,15 @@ public final class JsonParser {
                     while (true) {
                         if (c >= '0' && c <= '9') {
                             final long m = to.mantissa();
-                            numberOverflow |= m > MAX_MANTISSA_BASE;
-                            if (!numberOverflow) {
+                            if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
                                 to.setMantissa(m * 10 + (c - '0'));
                                 numberMantissaExp--;
+                            } else if (!numberOverflow) {
+                                numberOverflow = true;
+                                overflown = startOverflownNumber(overflown, m, numberMinuses,
+                                        true, numberMantissaExp, c);
+                            } else {
+                                overflown.append(c);
                             }
 
                             if (++pos == len) {
@@ -351,9 +423,55 @@ public final class JsonParser {
                     throw new IllegalStateException();
             }
         }
-        setNumber(to, numberMinuses, numberMantissaExp);
+        setNumber(to, numberMinuses, numberMantissaExp, numberOverflow, overflown);
         return numberOverflow;
     }
+
+    /**
+     * Starts a capturing of the full decimal representation of a number which has just overflown
+     * the mantissa. The digits accumulated so far are exact, so the head of the number is rendered
+     * back from the state of the parsing, and the digit the overflow has happened on is appended to it.
+     * All the following digits are appended to the same buffer as is.
+     *
+     * @param sink the buffer to render into, or {@code null} to use the thread local one
+     * @param mantissa the mantissa accumulated so far. It's still a positive magnitude at this point
+     * @param numberMinuses the bit mask of the minuses of the number
+     * @param fractionalPart {@code true} if the overflow has happened in the fractional part of the mantissa
+     * @param numberMantissaExp the current exponent of the mantissa
+     * @param digit the digit the overflow has happened on
+     * @return the buffer the number has been rendered into
+     */
+    private static StringBuilder startOverflownNumber(
+            final StringBuilder sink,
+            final long mantissa,
+            final int numberMinuses,
+            final boolean fractionalPart,
+            final int numberMantissaExp,
+            final char digit) {
+        final StringBuilder result = sink != null ? sink : LAST_OVERFLOWN_NUMBER.get();
+        result.setLength(0);
+        if ((numberMinuses & 2) != 0) {
+            result.append('-');
+        }
+        final int digitsStart = result.length();
+        result.append(mantissa);
+        if (fractionalPart) {
+            final int fractionalDigits = -numberMantissaExp;
+            final int digits = result.length() - digitsStart;
+            if (fractionalDigits < digits) {
+                result.insert(digitsStart + digits - fractionalDigits, '.');
+            } else { // 0.000...digits
+                result.insert(digitsStart, "0.");
+                for (int i = digits; i < fractionalDigits; i++) {
+                    result.insert(digitsStart + 2, '0');
+                }
+            }
+        }
+        result.append(digit);
+        return result;
+    }
+
+    private final StringBuilder overflownNumber = new StringBuilder();
 
     private final Next next = () -> JsonParser.this.next();
 
@@ -417,6 +535,20 @@ public final class JsonParser {
 
     public boolean hasError() {
         return error != null;
+    }
+
+    /**
+     * The full decimal representation of the last number which overflowed the mantissa.
+     *
+     * <p>The content is valid only while the {@code onNumberValue(JsonNumber, boolean)} callback,
+     * which has been notified with {@code overflow} set to {@code true}, is being handled.
+     * It's a well-formed decimal literal, so it can be passed to
+     * {@code new java.math.BigDecimal(CharSequence)} as is.
+     *
+     * @return the buffer with the text of the last overflown number
+     */
+    public CharSequence overflownNumber() {
+        return overflownNumber;
     }
 
     public void parseAndEoj(final CharSequence data) {
@@ -708,10 +840,15 @@ public final class JsonParser {
                                     c = data.charAt(start + pos);
                                     if (c >= '0' && c <= '9') {
                                         final long m = number.mantissa();
-                                        numberOverflow |= m > MAX_MANTISSA_BASE;
-                                        if (!numberOverflow) {
+                                        if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
                                             number.setMantissa(m * 10 + (c - '0'));
+                                        } else if (!numberOverflow) {
+                                            numberOverflow = true;
+                                            startOverflownNumber(overflownNumber, m, numberMinuses,
+                                                    false, numberMantissaExp, c);
+                                            numberMantissaExp++;
                                         } else {
+                                            overflownNumber.append(c);
                                             numberMantissaExp++;
                                         }
                                         if (++pos == len) {
@@ -721,6 +858,9 @@ public final class JsonParser {
                                     }
                                     switch (c) {
                                         case '.':
+                                            if (numberOverflow) {
+                                                overflownNumber.append('.');
+                                            }
                                             currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
                                             break _next_char;
                                         case 'e':
@@ -883,10 +1023,15 @@ public final class JsonParser {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
                                     final long m = number.mantissa();
-                                    numberOverflow |= m > MAX_MANTISSA_BASE;
-                                    if (!numberOverflow) {
+                                    if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
                                         number.setMantissa(m * 10 + (c - '0'));
+                                    } else if (!numberOverflow) {
+                                        numberOverflow = true;
+                                        startOverflownNumber(overflownNumber, m, numberMinuses,
+                                                false, numberMantissaExp, c);
+                                        numberMantissaExp++;
                                     } else {
+                                        overflownNumber.append(c);
                                         numberMantissaExp++;
                                     }
                                     if (++pos == len) {
@@ -897,6 +1042,9 @@ public final class JsonParser {
                                 }
                                 switch (c) {
                                     case '.':
+                                        if (numberOverflow) {
+                                            overflownNumber.append('.');
+                                        }
                                         currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
                                         break _next_char;
                                     case 'e':
@@ -954,10 +1102,15 @@ public final class JsonParser {
                             while (true) {
                                 if (c >= '0' && c <= '9') {
                                     final long m = number.mantissa();
-                                    numberOverflow |= m > MAX_MANTISSA_BASE;
-                                    if (!numberOverflow) {
+                                    if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
                                         number.setMantissa(m * 10 + (c - '0'));
                                         numberMantissaExp--;
+                                    } else if (!numberOverflow) {
+                                        numberOverflow = true;
+                                        startOverflownNumber(overflownNumber, m, numberMinuses,
+                                                true, numberMantissaExp, c);
+                                    } else {
+                                        overflownNumber.append(c);
                                     }
                                     if (++pos == len) {
                                         break _end;
@@ -1275,7 +1428,21 @@ public final class JsonParser {
     private static void setNumber(
             final MutableJsonNumber number,
             final int numberMinuses,
-            final int numberMantissaExp) {
+            final int numberMantissaExp,
+            final boolean numberOverflow,
+            final StringBuilder overflownNumber) {
+        if (numberOverflow) {
+            // number.exp() still holds the magnitude of the explicit exponent only,
+            // its sign is in the bit 1 of numberMinuses
+            final int explicitExp = number.exp();
+            if (explicitExp != 0) {
+                overflownNumber.append('e');
+                if ((numberMinuses & 1) != 0) {
+                    overflownNumber.append('-');
+                }
+                overflownNumber.append(explicitExp);
+            }
+        }
         if ((numberMinuses & 2) != 0) {
             number.setMantissa(-number.mantissa());
         }
@@ -1499,7 +1666,7 @@ public final class JsonParser {
     }
 
     private int onNumber(final JsonParserListener lnr, final int lexemaPosition) {
-        setNumber(number, numberMinuses, numberMantissaExp);
+        setNumber(number, numberMinuses, numberMantissaExp, numberOverflow, overflownNumber);
 
         final int currentScope = peekScope();
 
@@ -1685,7 +1852,8 @@ public final class JsonParser {
                     case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART:
                     case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART:
                     case LEXEMA_NUMBER_STARTED_E_VALUE:
-                        setNumber(number, numberMinuses, numberMantissaExp); // try to apply the number
+                        // try to apply the number
+                        setNumber(number, numberMinuses, numberMantissaExp, numberOverflow, overflownNumber);
                         lnr.onNumberValue(number, numberOverflow);
                         popScope();
                         break;

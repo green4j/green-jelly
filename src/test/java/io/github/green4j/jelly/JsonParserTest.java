@@ -33,6 +33,24 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonParserTest {
+
+    private static final String[] OVERFLOWN_NUMBERS = new String[] {
+            (JsonParser.MAX_MANTISSA_VALUE + 1) + "",
+            "9999999999999999999999",
+            "9999999999999999999999E10",
+            "9999999999999999999999E-10",
+            "0." + (JsonParser.MAX_MANTISSA_VALUE + 1),
+            "0.9999999999999999999999",
+            "9.9999999999999999999999",
+            "9.9999999999999999999999E10",
+            "9.9999999999999999999999E-10",
+            "922337203685477580.5",
+            "0.00000000000000000000000123456789012345678901234",
+            "-99999999999999999999999.55e-7",
+            "+99999999999999999999999E10",
+            "-0000009999999999999999999999"
+    };
+
     @Test
     public void parseNumberTest() {
         final String[] numbers = new String[]{
@@ -141,6 +159,75 @@ public class JsonParserTest {
             assertEquals(mantissas[i], number.mantissa());
             assertEquals(exponents[i], number.exp());
         }
+    }
+
+    @Test
+    public void parseNumberOverflownTextTest() {
+        final MutableJsonNumber number = new MutableJsonNumber();
+        final StringBuilder overflown = new StringBuilder();
+
+        for (final String overflownNumber : OVERFLOWN_NUMBERS) {
+            assertTrue(JsonParser.parseNumber(overflownNumber, number, overflown));
+
+            final BigDecimal expected = new BigDecimal(overflownNumber);
+            assertEquals(expected, new BigDecimal(overflown.toString()));
+        }
+    }
+
+    @Test
+    public void parseNumberOverflownTextThreadLocalTest() {
+        final MutableJsonNumber number = new MutableJsonNumber();
+
+        for (final String overflownNumber : OVERFLOWN_NUMBERS) {
+            assertTrue(JsonParser.parseNumber(overflownNumber, number));
+
+            final BigDecimal expected = new BigDecimal(overflownNumber);
+            assertEquals(expected, new BigDecimal(JsonParser.lastOverflownNumber().toString()));
+        }
+    }
+
+    @Test
+    public void parseNumberOverflownTextExactTest() {
+        final String[] numbers = new String[] {
+                (JsonParser.MAX_MANTISSA_VALUE + 1) + "",
+                "9999999999999999999999E10",
+                "0." + (JsonParser.MAX_MANTISSA_VALUE + 1),
+                "9.9999999999999999999999E-10",
+                "922337203685477580.5",
+                "-99999999999999999999999.55e-7",
+                "+99999999999999999999999E10",
+                "-0000009999999999999999999999"
+        };
+        final String[] texts = new String[] {
+                "9223372036854775800",
+                "9999999999999999999999e10",
+                "0.9223372036854775800",
+                "9.9999999999999999999999e-10",
+                "922337203685477580.5",
+                "-99999999999999999999999.55e-7",
+                "99999999999999999999999e10",
+                "-9999999999999999999999"
+        };
+
+        final MutableJsonNumber number = new MutableJsonNumber();
+        final StringBuilder overflown = new StringBuilder();
+
+        for (int i = 0; i < numbers.length; i++) {
+            assertTrue(JsonParser.parseNumber(numbers[i], number, overflown));
+            assertEquals(texts[i], overflown.toString());
+        }
+    }
+
+    @Test
+    public void parseNumberNotOverflownTextTest() {
+        final MutableJsonNumber number = new MutableJsonNumber();
+        final StringBuilder overflown = new StringBuilder();
+
+        assertTrue(JsonParser.parseNumber("9999999999999999999999", number, overflown));
+        assertEquals("9999999999999999999999", overflown.toString());
+
+        assertFalse(JsonParser.parseNumber("123.45", number, overflown));
+        assertEquals("9999999999999999999999", overflown.toString());
     }
 
     @Test
@@ -432,6 +519,75 @@ public class JsonParserTest {
             assertNotNull(events.pop().as(JsonEvents.JsonStart.class));
             assertTrue(events.isEmpty());
         }
+    }
+
+    @Test
+    public void numberOverflownTextTest() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        for (final String overflownNumber : OVERFLOWN_NUMBERS) {
+            events.clear();
+            parser.parseAndEoj(overflownNumber);
+
+            assertNotNull(events.pop().as(JsonEvents.JsonEnd.class));
+            final JsonEvents.NumberValue event = events.pop().as(JsonEvents.NumberValue.class);
+            assertNotNull(event);
+            assertTrue(event.overflow());
+
+            final BigDecimal expected = new BigDecimal(overflownNumber);
+            assertEquals(expected, new BigDecimal(parser.overflownNumber().toString()));
+
+            assertNotNull(events.pop().as(JsonEvents.JsonStart.class));
+            assertTrue(events.isEmpty());
+        }
+    }
+
+    @Test
+    public void numberOverflownTextSplitTest() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        for (final String overflownNumber : OVERFLOWN_NUMBERS) {
+            events.clear();
+            for (int i = 0; i < overflownNumber.length(); i++) {
+                parser.parse(overflownNumber.substring(i, i + 1));
+            }
+            parser.eoj();
+
+            assertNotNull(events.pop().as(JsonEvents.JsonEnd.class));
+            final JsonEvents.NumberValue event = events.pop().as(JsonEvents.NumberValue.class);
+            assertNotNull(event);
+            assertTrue(event.overflow());
+
+            final BigDecimal expected = new BigDecimal(overflownNumber);
+            assertEquals(expected, new BigDecimal(parser.overflownNumber().toString()));
+
+            assertNotNull(events.pop().as(JsonEvents.JsonStart.class));
+            assertTrue(events.isEmpty());
+        }
+    }
+
+    @Test
+    public void numberOverflownTextInCallbackTest() {
+        final StringBuilder captured = new StringBuilder();
+        final JsonParser parser = new JsonParser();
+        parser.setListener(new JsonParserListenerAdapter() {
+            @Override
+            public boolean onNumberValue(final JsonNumber number, final boolean overflow) {
+                captured.setLength(0);
+                captured.append(overflow ? parser.overflownNumber() : "");
+                return true;
+            }
+        });
+
+        parser.parseAndEoj("[-0.00000000000000000000000123456789012345678901234e5,123.45]");
+
+        assertEquals("", captured.toString());
+
+        parser.parseAndEoj("9999999999999999999999.123E-7");
+
+        assertEquals("9999999999999999999999.123e-7", captured.toString());
     }
 
     @Test
