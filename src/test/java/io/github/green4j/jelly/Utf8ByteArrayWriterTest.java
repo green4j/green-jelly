@@ -75,9 +75,9 @@ class Utf8ByteArrayWriterTest {
     @Test
     void testAppendNonAsciiChar() {
         final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(10);
-        writer.append('\u00E9'); // append é (Unicode: U+00E9)
-        assertEquals(2, writer.length()); // UTF-8 encoding for é is two bytes
-        final byte[] expected = { (byte) 0xC3, (byte) 0xA9 }; // UTF-8 representation of é
+        writer.append('\u00E9'); // append U+00E9
+        assertEquals(2, writer.length()); // UTF-8 encoding for U+00E9 is two bytes
+        final byte[] expected = { (byte) 0xC3, (byte) 0xA9 }; // UTF-8 representation of U+00E9
         assertArrayEquals(expected, new byte[] { writer.array()[0], writer.array()[1] });
     }
 

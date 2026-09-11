@@ -74,7 +74,7 @@ class AsciiByteArrayWriterTest {
     @Test
     void testAppendNonAsciiChar() {
         final AsciiByteArrayWriter writer = new AsciiByteArrayWriter(10);
-        writer.append('\u00E9'); // é (Unicode: U+00E9)
+        writer.append('\u00E9'); // U+00E9
         assertEquals(6, writer.length()); // non-ASCII should be encoded as \\uXXXX
         final String result = writer.toString();
         assertEquals("\\u00e9", result); // verify correct UTF-16 escape sequence
