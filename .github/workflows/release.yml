@@ -31,21 +31,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # What the published artifacts are compiled and documented with. --release 11 pins the bytecode on any
-      # JDK, but a release is built by the javac of the version it is released for.
+      # The only JDK of this workflow: Gradle, javac, the tests, javadoc, Checkstyle and JaCoCo all run on
+      # it, so a release is built by the javac of the version it is released for.
       - name: Set up JDK 11 (release baseline)
-        id: release-jdk
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '11'
-
-      # Gradle 8 no longer runs on JDK 11, so it gets its own JDK and the baseline stays a toolchain.
-      - name: Set up JDK 21 to run Gradle
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
           cache: gradle
 
       - name: Resolve publish mode
@@ -109,16 +101,9 @@ jobs:
           SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
           SIGNING_GPG_SECRET_KEY: ${{ secrets.SIGNING_GPG_SECRET_KEY }}
           SIGNING_GPG_PASSWORD: ${{ secrets.SIGNING_GPG_PASSWORD }}
-          BASELINE_JDK: ${{ steps.release-jdk.outputs.path }}
         run: |
           if [[ "${PUBLISH_MODE}" == "snapshot" ]]; then
-            ./gradlew --no-daemon --stacktrace \
-              "-Dorg.gradle.java.installations.paths=${BASELINE_JDK}" \
-              -PbuildJavaVersion=11 \
-              clean build publish
+            ./gradlew --no-daemon --stacktrace clean build publish
           else
-            ./gradlew --no-daemon --stacktrace \
-              "-Dorg.gradle.java.installations.paths=${BASELINE_JDK}" \
-              -PbuildJavaVersion=11 \
-              clean build publish uploadArtifactsToSonatypeCentralPortal
+            ./gradlew --no-daemon --stacktrace clean build publish uploadArtifactsToSonatypeCentralPortal
           fi
