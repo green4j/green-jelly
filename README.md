@@ -106,6 +106,7 @@ The library provides a default implementation of the listener, `JsonParserListen
 The supported format of number values is a bit more relaxed than the one specified in [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm):
 * the numbers can start with either `+` or `-`
 * leading zeros are allowed for both the mantissa and the exponent
+* the fractional part can be empty: `1.` is `1` and `1.e5` is `1e5`
 * the mantissa is represented by Java's signed `long`, which is a bit wider than JavaScript numbers [-(2^53)+1, (2^53)-1]
 
 To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point arithmetic. Numbers are represented by the following interface:
@@ -376,6 +377,7 @@ final StringWriter stringWriter = new StringWriter();
 json.toJsonAndEoj(stringWriter);
 System.out.println(stringWriter);
 ```
+A number whose mantissa doesn't fit into a `long` is written truncated to 18 digits, with no rounding.
 
 To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
 ```java
@@ -383,6 +385,24 @@ final JsonValueParser parser = new JsonValueParser();
 final JsonValue json = parser.parseAndEoj("{ \"name\": \"Mike\", \"age\": 23 }");
 System.out.println(json);
 ```
+An error is thrown as `IllegalArgumentException`, and the same parser can be used for the next document after it.
+To drop a document being parsed, call `reset()`.
+
+The tree is built by `JsonValueBuilder`, which is a `JsonParserListener`, so it can be given to any parser.
+With `Utf8JsonParser` a `JsonValue` is built right from UTF-8 bytes, in one pass and with no decoding to chars beforehand:
+```java
+final Utf8JsonParser parser = new Utf8JsonParser();
+final JsonValueBuilder builder = new JsonValueBuilder(parser); // the parser gives the exact text of an overflown number
+parser.setListener(builder);
+
+parser.parseAndEoj(bytes); // a byte[] or a ByteBuffer, or several parse() calls with the parts of the document
+if (parser.hasError()) {
+    throw new IllegalArgumentException(parser.getError() + " at " + parser.getErrorPosition());
+}
+final JsonValue json = builder.value();
+```
+The builder can be reused for the next document. The builder doesn't throw: an error is reported by the parser,
+and the value of such a document is `null`. If `eoj()` isn't called after an error, reset the parser before the next document.
 
 ## License
 The code is available under the terms of the [MIT License](http://opensource.org/licenses/MIT).

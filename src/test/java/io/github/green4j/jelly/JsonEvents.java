@@ -133,6 +133,15 @@ public class JsonEvents implements JsonParserListener {
         return stack.remove(stack.size() - 1);
     }
 
+    public Error firstError() {
+        for (final Event event : stack) {
+            if (event instanceof Error) {
+                return (Error) event;
+            }
+        }
+        return null;
+    }
+
     public boolean isEmpty() {
         return size() == 0;
     }

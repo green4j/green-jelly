@@ -337,14 +337,6 @@ abstract class AbstractJsonParser {
 
         switch (currentScope) {
             case EXPRESSION_OBJECT_STARTED:
-            case EXPRESSION_OBJECT_STARTED_MEMBER_COMMA_DELIMITER: {
-                final boolean r = lnr.onObjectEnded();
-                popScope();
-                if (r) {
-                    break;
-                }
-                return 1;
-            }
             case EXPRESSION_OBJECT_STARTED_MEMBER_VALUE: {
                 final boolean r = lnr.onObjectEnded();
                 popScope();
@@ -403,14 +395,6 @@ abstract class AbstractJsonParser {
 
         switch (currentScope) {
             case EXPRESSION_ARRAY_STARTED:
-            case EXPRESSION_ARRAY_STARTED_COMMA_DELIMITER: {
-                final boolean r = lnr.onArrayEnded();
-                popScope();
-                if (r) {
-                    break;
-                }
-                return 1;
-            }
             case EXPRESSION_ARRAY_STARTED_VALUE: {
                 final boolean r = lnr.onArrayEnded();
                 popScope();
@@ -657,8 +641,7 @@ abstract class AbstractJsonParser {
         final int currentScope = peekScope();
 
         switch (currentScope) {
-            case -1: // no scope
-                break;
+            case -1: // no scope: the root value has ended, so a lexema started after it is an error
             case EXPRESSION_INITIAL:
                 /* check we are in progress of parsing of the first lexema */
                 switch (currentLexemaState) {
@@ -694,6 +677,10 @@ abstract class AbstractJsonParser {
                     case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART:
                     case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART:
                     case LEXEMA_NUMBER_STARTED_E_VALUE:
+                        if (currentScope != EXPRESSION_INITIAL) {
+                            error(ERROR_UNEXPECTED_NUMBER_MESSAGE, lexemaPosition);
+                            return -1;
+                        }
                         // try to apply the number
                         setNumber(number, numberMinuses, numberMantissaExp, numberOverflow, overflownNumber);
                         lnr.onNumberValue(number, numberOverflow);

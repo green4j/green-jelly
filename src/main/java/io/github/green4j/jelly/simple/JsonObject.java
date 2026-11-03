@@ -28,16 +28,14 @@ import io.github.green4j.jelly.JsonGenerator;
 import io.github.green4j.jelly.JsonNumber;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class JsonObject {
     private static final JsonValue NULL_VALUE = JsonValue.newNull();
 
-    private final List<Member> members = new ArrayList<>();
-    private final Map<String, JsonValue> membersByName = new HashMap<>();
+    // a member put again keeps its position and gets the new value
+    private final Map<String, JsonValue> membersByName = new LinkedHashMap<>();
 
     JsonObject() {
     }
@@ -197,7 +195,7 @@ public class JsonObject {
     }
 
     public void putNull(final String member) {
-        putMember(member, null);
+        putMember(member, JsonValue.newNull());
     }
 
     public boolean isNull(final String member) {
@@ -210,9 +208,10 @@ public class JsonObject {
 
     public boolean isNullRequired(final String member) {
         final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asBooleanRequired() :
-                NULL_VALUE.isNull();
+        if (jsonValue == null) {
+            throw new IllegalStateException("Required member missed");
+        }
+        return jsonValue.isNull();
     }
 
     JsonValue putObjectValue(final String member) {
@@ -224,16 +223,15 @@ public class JsonObject {
     }
 
     private JsonValue putMember(final String member, final JsonValue value) {
-        members.add(new Member(member, value));
         membersByName.put(member, value);
         return value;
     }
 
     public void toJson(final JsonWriter jsonGenerator) {
         jsonGenerator.startObject();
-        for (final Member member : members) {
-            jsonGenerator.objectMember(member.name);
-            member.value.toJson(jsonGenerator);
+        for (final Map.Entry<String, JsonValue> member : membersByName.entrySet()) {
+            jsonGenerator.objectMember(member.getKey());
+            member.getValue().toJson(jsonGenerator);
         }
         jsonGenerator.endObject();
     }
@@ -245,15 +243,5 @@ public class JsonObject {
         generator.setOutput(new AppendableWriter<>(result));
         toJson(new JsonWriterGenerator(generator));
         return result.toString();
-    }
-
-    private final class Member {
-        private final String name;
-        private final JsonValue value;
-
-        private Member(final String name, final JsonValue value) {
-            this.name = name;
-            this.value = value;
-        }
     }
 }

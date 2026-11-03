@@ -110,7 +110,7 @@ public class JsonArray {
     }
 
     public void addDecimal(final JsonNumber value) {
-        addDecimal(BigDecimal.valueOf(value.mantissa(), -value.exp()));
+        items.add(JsonValue.newDecimal(value));
     }
 
     public void addDecimal(final BigDecimal value) {

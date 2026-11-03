@@ -23,45 +23,31 @@
  */
 package io.github.green4j.jelly.simple;
 
-import io.github.green4j.jelly.JsonNumber;
 import io.github.green4j.jelly.JsonParser;
-import io.github.green4j.jelly.JsonParserListener;
 
-import java.util.LinkedList;
-
+/**
+ * Parses chars of a JSON document into a {@link JsonValue} with {@link JsonParser} and {@link JsonValueBuilder}.
+ * An error of the parsing is thrown as {@link IllegalArgumentException}, and the parser is ready
+ * for the next document after it. To build a value right from UTF-8 bytes, use {@link JsonValueBuilder}
+ * with {@link io.github.green4j.jelly.Utf8JsonParser}.
+ */
 public class JsonValueParser {
     private final JsonParser parser = new JsonParser();
-    private final LinkedList<JsonValue> stack = new LinkedList<>();
-
-    private JsonValue currentValue;
-    private String currentMember;
-
-    private boolean newJson = true;
+    private final JsonValueBuilder builder = new JsonValueBuilder(parser);
 
     public JsonValueParser() {
-        parser.setListener(new JsonDeserializer());
+        parser.setListener(builder);
     }
 
     public void parse(final CharSequence json) {
-        if (newJson) {
-            stack.clear();
-            currentValue = null;
-            currentMember = null;
-            newJson = false;
-        }
         parser.parse(json);
-
-        if (parser.hasError()) {
-            throw new IllegalArgumentException("An error '" + parser.getError()
-                    + "' as position: " + parser.getErrorPosition());
-        }
+        throwIfError();
     }
 
     public JsonValue eoj() {
-        newJson = true;
-
         parser.eoj();
-        return currentValue;
+        throwIfError();
+        return builder.value();
     }
 
     public JsonValue parseAndEoj(final CharSequence json) {
@@ -69,189 +55,19 @@ public class JsonValueParser {
         return eoj();
     }
 
-    private final class JsonDeserializer implements JsonParserListener {
-        @Override
-        public void onJsonStarted() {
-        }
+    /**
+     * Drops the document being parsed, so the next {@code parse} starts a new one.
+     */
+    public void reset() {
+        parser.reset();
+    }
 
-        @Override
-        public void onError(final String error, final int position) {
-            throw new IllegalArgumentException("An error " + error + " while parsing");
-        }
-
-        @Override
-        public void onJsonEnded() {
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public boolean onObjectStarted() {
-            if (currentValue == null) {
-                currentValue = JsonValue.newObject();
-                return true;
-            }
-
-            stack.push(currentValue);
-
-            final Object value = currentValue.value();
-
-            if (value instanceof JsonObject) {
-                currentValue = ((JsonObject) value).putObjectValue(currentMember);
-                return true;
-            }
-            if (value instanceof JsonArray) {
-                currentValue = ((JsonArray) value).addObjectValue();
-                return true;
-            }
-
-            throw new IllegalStateException("Object isn't allowed here");
-        }
-
-        @Override
-        public boolean onObjectMember(final CharSequence name) {
-            currentMember = name.toString();
-            return true;
-        }
-
-        @Override
-        public boolean onObjectEnded() {
-            if (!stack.isEmpty()) {
-                currentValue = stack.pop();
-            }
-            currentMember = null;
-            return true;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public boolean onArrayStarted() {
-            if (currentValue == null) {
-                currentValue = JsonValue.newArray();
-                return true;
-            }
-
-            stack.push(currentValue);
-
-            final Object value = currentValue.value();
-
-            if (value instanceof JsonObject) {
-                currentValue = ((JsonObject) value).putArrayValue(currentMember);
-                return true;
-            }
-            if (value instanceof JsonArray) {
-                currentValue = ((JsonArray) value).addArrayValue();
-                return true;
-            }
-
-            throw new IllegalStateException("Array isn't allowed here");
-        }
-
-        @Override
-        public boolean onArrayEnded() {
-            if (!stack.isEmpty()) {
-                currentValue = stack.pop();
-            }
-            return true;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public boolean onStringValue(final CharSequence data) {
-            final String string = data.toString();
-            if (currentValue == null) {
-                currentValue = JsonValue.newString(string);
-                return true;
-            }
-
-            final Object value = currentValue.value();
-
-            if (value instanceof JsonObject) {
-                ((JsonObject) value).putString(currentMember, string);
-                return true;
-            }
-            if (value instanceof JsonArray) {
-                ((JsonArray) value).addString(string);
-                return true;
-            }
-
-            throw new IllegalStateException("Scalar string " + string + " isn't allowed here");
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public boolean onNumberValue(final JsonNumber number) {
-            if (currentValue == null) {
-                currentValue = JsonValue.newDecimal(number);
-                return true;
-            }
-
-            final Object value = currentValue.value();
-
-            if (value instanceof JsonObject) {
-                ((JsonObject) value).putDecimal(currentMember, number);
-                return true;
-            }
-            if (value instanceof JsonArray) {
-                ((JsonArray) value).addDecimal(number);
-                return true;
-            }
-
-            throw new IllegalStateException("Scalar number " + number + " isn't allowed here");
-        }
-
-        @Override
-        public boolean onTrueValue() {
-            onBoolean(true);
-            return true;
-        }
-
-        @Override
-        public boolean onFalseValue() {
-            onBoolean(false);
-            return true;
-        }
-
-        @SuppressWarnings("unchecked")
-        private void onBoolean(final boolean v) {
-            if (currentValue == null) {
-                currentValue = JsonValue.newBoolean(v);
-            }
-
-            final Object value = currentValue.value();
-
-            if (value instanceof JsonObject) {
-                ((JsonObject) value).putBoolean(currentMember, v);
-                return;
-            }
-            if (value instanceof JsonArray) {
-                ((JsonArray) value).addBoolean(v);
-                return;
-            }
-
-            throw new IllegalStateException("Scalar boolean " + v + " isn't allowed here");
-        }
-
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public boolean onNullValue() {
-            if (currentValue == null) {
-                currentValue = JsonValue.newNull();
-                return true;
-            }
-
-            final Object value = currentValue.value();
-
-            if (value instanceof JsonObject) {
-                ((JsonObject) value).putNull(currentMember);
-                return true;
-            }
-            if (value instanceof JsonArray) {
-                ((JsonArray) value).addNull();
-                return true;
-            }
-
-            throw new IllegalStateException("Scalar null isn't allowed here");
+    private void throwIfError() {
+        if (parser.hasError()) {
+            final String error = parser.getError();
+            final int position = parser.getErrorPosition();
+            parser.reset(); // the next document starts from scratch
+            throw new IllegalArgumentException("An error '" + error + "' at position: " + position);
         }
     }
 }
