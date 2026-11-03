@@ -66,6 +66,21 @@ public class JsonValueTest {
     }
 
     @Test
+    void keepsTheLastValueOfAMemberPutAgainAtItsFirstPosition() {
+        final JsonValue json = JsonValue.newObject();
+        final JsonObject object = json.asObjectRequired();
+        object.putInteger("a", 1);
+        object.putInteger("b", 2);
+        object.putString("a", "x");
+        assertEquals("x", object.getString("a"));
+        assertEquals("{\"a\":\"x\",\"b\":2}", json(json).replaceAll("\\s", ""));
+
+        final JsonValue parsed = new JsonValueParser().parseAndEoj("{\"a\":1,\"b\":2,\"a\":[3]}");
+        assertEquals(3, parsed.asObjectRequired().getArrayRequired("a").getInteger(0));
+        assertEquals("{\"a\":[3],\"b\":2}", json(parsed).replaceAll("\\s", ""));
+    }
+
+    @Test
     void writesNullAsNullWithToString() {
         assertEquals("null", JsonValue.newNull().toString());
         assertEquals("null", new JsonValueParser().parseAndEoj("null").toString());
