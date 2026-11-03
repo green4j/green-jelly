@@ -23,6 +23,7 @@
  */
 package io.github.green4j.jelly;
 
+import java.io.StringWriter;
 import java.math.BigDecimal;
 
 import org.junit.jupiter.api.Test;
@@ -237,6 +238,78 @@ public class JsonGeneratorTest {
             assertTrue(number.compareTo(
                     new BigDecimal(numberString.substring(1, numberString.length() - 1))) == 0);
         }
+    }
+
+    @Test
+    public void numberOfMinimalMantissaTest() {
+        final String[][] expected = new String[][] {
+                {"0", "-9223372036854775808"},
+                {"-2", "-92233720368547758.08"},
+                {"-19", "-0.9223372036854775808"},
+                {"-22", "-0.0009223372036854775808"},
+                {"-25", "-9.223372036854775808e-7"},
+                {"5", "-9.223372036854775808e+23"}
+        };
+        for (final String[] e : expected) {
+            final StringBuilder out = new StringBuilder();
+            final JsonGenerator generator = new JsonGenerator(out, false);
+            generator.numberValue(Long.MIN_VALUE, Integer.parseInt(e[0]));
+            generator.eoj();
+            assertEquals(e[1], out.toString());
+        }
+    }
+
+    @Test
+    public void anyKindOfOutputTest() {
+        final String expected = "[-12,1.5,\"a\\nb\",true]";
+
+        final StringBuffer buffer = new StringBuffer();
+        generateAnyKindOfOutputDocument(new JsonGenerator(buffer, false));
+        assertEquals(expected, buffer.toString());
+
+        final StringWriter writer = new StringWriter();
+        generateAnyKindOfOutputDocument(new JsonGenerator(writer, false));
+        assertEquals(expected, writer.toString());
+
+        final StringBuilder builder = new StringBuilder();
+        final AppendableWriter<StringBuilder> charByCharWriter = new AppendableWriter<>(builder);
+        generateAnyKindOfOutputDocument(new JsonGenerator(new BufferingWriter() { // the default bulk appending
+            @Override
+            public Frame append(final int size) {
+                return charByCharWriter.append(size);
+            }
+
+            @Override
+            public void append(final char c) {
+                charByCharWriter.append(c);
+            }
+
+            @Override
+            public void append(final CharSequence data) {
+                charByCharWriter.append(data);
+            }
+
+            @Override
+            public void append(final CharSequence data, final int start, final int len) {
+                charByCharWriter.append(data, start, len);
+            }
+
+            @Override
+            public void flush() {
+                charByCharWriter.flush();
+            }
+        }, false));
+        assertEquals(expected, builder.toString());
+    }
+
+    private static void generateAnyKindOfOutputDocument(final JsonGenerator generator) {
+        generator.startArray();
+        generator.numberValue(-12);
+        generator.numberValue(15, -1);
+        generator.stringValue("a\nb", true);
+        generator.trueValue();
+        generator.endArray();
+        generator.eoj();
     }
 
     @Test

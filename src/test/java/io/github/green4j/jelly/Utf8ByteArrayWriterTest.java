@@ -157,4 +157,29 @@ class Utf8ByteArrayWriterTest {
         assertThrows(UnsupportedOperationException.class, () -> frame.charAt(0));
         assertThrows(UnsupportedOperationException.class, () -> frame.subSequence(0, 2));
     }
+
+    @Test
+    void testAppendCharGrowingArrayWithStart() {
+        final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(new byte[10], 8);
+        writer.append('a');
+        writer.append('b');
+        assertEquals("ab", writer.toString());
+    }
+
+    @Test
+    void testBulkAppendOfNonAsciiChars() {
+        final String expected = "ab\u0436cd";
+
+        final Utf8ByteArrayWriter fromString = new Utf8ByteArrayWriter(2);
+        fromString.append("xab\u0436cdx", 1, 5);
+        assertEquals(expected, fromString.toString());
+
+        final Utf8ByteArrayWriter fromCharSequence = new Utf8ByteArrayWriter(2);
+        fromCharSequence.append(new StringBuilder("xab\u0436cdx"), 1, 5);
+        assertEquals(expected, fromCharSequence.toString());
+
+        final Utf8ByteArrayWriter fromChars = new Utf8ByteArrayWriter(2);
+        fromChars.append("xab\u0436cdx".toCharArray(), 1, 5);
+        assertEquals(expected, fromChars.toString());
+    }
 }

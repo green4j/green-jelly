@@ -23,9 +23,16 @@
  */
 package io.github.green4j.jelly;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 public final class CopyingStringBuilder implements JsonStringBuilder {
 
-    private final StringBuilder buffer = new StringBuilder();
+    private static final int INITIAL_BUFFER_SIZE = 64;
+
+    private char[] buffer = new char[INITIAL_BUFFER_SIZE];
+    private int length;
+
     private final boolean rawString;
 
     private int escapedUnicodeChar;
@@ -40,95 +47,107 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
 
     @Override
     public int length() {
-        return buffer.length();
+        return length;
     }
 
     @Override
     public char charAt(final int index) {
-        return buffer.charAt(index);
+        return buffer[Objects.checkIndex(index, length)];
     }
 
     @Override
     public void start(final CharSequence data, final int position) {
-        buffer.setLength(0);
+        length = 0;
     }
 
     @Override
     public void append(final CharSequence data, final int start, final int len) {
-        buffer.append(data, start, start + len);
+        makeSureRoomSize(len);
+        final char[] chars = buffer;
+        final int to = length;
+        if (data instanceof String) {
+            ((String) data).getChars(start, start + len, chars, to);
+        } else if (data instanceof StringBuilder) {
+            ((StringBuilder) data).getChars(start, start + len, chars, to);
+        } else {
+            for (int i = 0; i < len; i++) {
+                chars[to + i] = data.charAt(start + i);
+            }
+        }
+        length = to + len;
     }
 
     @Override
     public void appendEscape() {
         if (rawString) {
-            buffer.append('\\');
+            append('\\');
         }
     }
 
     @Override
     public void appendEscapedQuotationMark() {
-        buffer.append('"');
+        append('"');
     }
 
     @Override
     public void appendEscapedReverseSolidus() {
-        buffer.append('\\');
+        append('\\');
     }
 
     @Override
     public void appendEscapedSolidus() {
-        buffer.append('/');
+        append('/');
     }
 
     @Override
     public void appendEscapedBackspace() {
         if (rawString) {
-            buffer.append('b');
+            append('b');
         } else {
-            buffer.append((char) 0x08);
+            append((char) 0x08);
         }
     }
 
     @Override
     public void appendEscapedFormfeed() {
         if (rawString) {
-            buffer.append('f');
+            append('f');
         } else {
-            buffer.append((char) 0x0c);
+            append((char) 0x0c);
         }
     }
 
     @Override
     public void appendEscapedNewLine() {
         if (rawString) {
-            buffer.append('n');
+            append('n');
         } else {
-            buffer.append((char) 0x0a);
+            append((char) 0x0a);
         }
     }
 
     @Override
     public void appendEscapedCarriageReturn() {
         if (rawString) {
-            buffer.append('r');
+            append('r');
         } else {
-            buffer.append((char) 0x0d);
+            append((char) 0x0d);
         }
     }
 
     @Override
     public void appendEscapedHorisontalTab() {
         if (rawString) {
-            buffer.append('t');
+            append('t');
         } else {
-            buffer.append((char) 0x09);
+            append((char) 0x09);
         }
     }
 
     @Override
     public void appendEscapedUnicodeU() {
         if (rawString) {
-            buffer.append('u');
+            append('u');
         }
     }
 
@@ -158,7 +177,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
                 case 'd':
                 case 'e':
                 case 'f':
-                    buffer.append(c);
+                    append(c);
                     break;
                 default:
                     return false;
@@ -234,7 +253,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
                 case 'd':
                 case 'e':
                 case 'f':
-                    buffer.append(c);
+                    append(c);
                     break;
                 default:
                     return false;
@@ -310,7 +329,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
                 case 'd':
                 case 'e':
                 case 'f':
-                    buffer.append(c);
+                    append(c);
                     break;
                 default:
                     return false;
@@ -386,7 +405,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
                 case 'd':
                 case 'e':
                 case 'f':
-                    buffer.append(c);
+                    append(c);
                     break;
                 default:
                     return false;
@@ -432,18 +451,30 @@ public final class CopyingStringBuilder implements JsonStringBuilder {
                 default:
                     return false;
             }
-            buffer.append((char) escapedUnicodeChar);
+            append((char) escapedUnicodeChar);
         }
         return true;
     }
 
     @Override
     public CharSequence subSequence(final int start, final int end) {
-        return buffer.subSequence(start, end);
+        Objects.checkFromToIndex(start, end, length);
+        return new String(buffer, start, end - start);
     }
 
     @Override
     public String toString() {
-        return buffer.toString();
+        return new String(buffer, 0, length);
+    }
+
+    private void append(final char c) {
+        makeSureRoomSize(1);
+        buffer[length++] = c;
+    }
+
+    private void makeSureRoomSize(final int roomSize) {
+        if (buffer.length - length < roomSize) {
+            buffer = Arrays.copyOf(buffer, Math.max(length + roomSize, buffer.length << 1));
+        }
     }
 }

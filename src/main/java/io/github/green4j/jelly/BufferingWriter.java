@@ -48,6 +48,19 @@ public interface BufferingWriter {
 
     void append(CharSequence data, int start, int len);
 
+    /**
+     * Appends a part of a char array. It's the way the generator writes everything it has formatted
+     * by itself, so an implementation having a buffer is expected to override it with a bulk copying.
+     * @param data the chars
+     * @param start index of the first char
+     * @param len number of chars to append
+     */
+    default void append(final char[] data, final int start, final int len) {
+        for (int i = 0; i < len; i++) {
+            append(data[start + i]);
+        }
+    }
+
     void flush();
 
 }

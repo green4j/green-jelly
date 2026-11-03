@@ -106,9 +106,23 @@ repositories {
     mavenCentral()
 }
 
+// JMH benchmarks live in a source set of their own: the jar, the sources/javadoc jars and the
+// publication are all built from 'main' only, so nothing from here reaches a release.
+sourceSets {
+    jmh {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
 dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter:${jupiterVersion}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    jmhImplementation "org.openjdk.jmh:jmh-core:${jmhVersion}"
+    jmhImplementation "com.fasterxml.jackson.core:jackson-core:${jmhJacksonVersion}"
+    jmhImplementation "com.google.code.gson:gson:${jmhGsonVersion}"
+    jmhAnnotationProcessor "org.openjdk.jmh:jmh-generator-annprocess:${jmhVersion}"
 
     checkstyle "com.puppycrawl.tools:checkstyle:${checkstyleVersion}"
 }
@@ -155,6 +169,10 @@ compileTestJava {
     options.encoding = 'UTF-8'
 }
 
+compileJmhJava {
+    options.encoding = 'UTF-8'
+}
+
 jar {
     manifest {
         attributes 'Implementation-Title': projectName,
@@ -184,6 +202,18 @@ test {
 
 check {
     dependsOn jacocoTestReport
+}
+
+// ./gradlew jmh -PjmhArgs="JsonParserBenchmark -wi 3 -i 3 -f 1"
+tasks.register('jmh', JavaExec) {
+    group = 'verification'
+    description = 'Runs the JMH benchmarks, the JMH command line is taken from -PjmhArgs'
+    classpath = sourceSets.jmh.runtimeClasspath
+    mainClass = 'org.openjdk.jmh.Main'
+    def jmhArgsProp = project.findProperty('jmhArgs')
+    if (jmhArgsProp) {
+        args jmhArgsProp.split(' ').toList()
+    }
 }
 
 javadoc {

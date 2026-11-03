@@ -112,4 +112,14 @@ class CharArrayWriterTest {
         writer.append("Test");
         assertEquals("Test", writer.toString());
     }
+
+    @Test
+    void testBulkAppends() {
+        final CharArrayWriter writer = new CharArrayWriter(2);
+        writer.append("xaby", 1, 2);
+        writer.append(new StringBuilder("xcdy"), 1, 2);
+        writer.append(new StringBuffer("xefy"), 1, 2);
+        writer.append("xghy".toCharArray(), 1, 2);
+        assertEquals("abcdefgh", writer.toString());
+    }
 }

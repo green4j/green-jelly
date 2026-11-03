@@ -146,9 +146,29 @@ public class CharArrayWriter implements
         assert array != null;
 
         makeSureRoomSize(len);
+        final char[] chars = array;
         final int startIndex = this.start + length;
-        for (int i = 0; i < len; i++) {
-            array[startIndex + i] = data.charAt(start + i);
+        if (data instanceof String) {
+            ((String) data).getChars(start, start + len, chars, startIndex);
+        } else if (data instanceof StringBuilder) {
+            ((StringBuilder) data).getChars(start, start + len, chars, startIndex);
+        } else {
+            for (int i = 0; i < len; i++) {
+                chars[startIndex + i] = data.charAt(start + i);
+            }
+        }
+        length += len;
+    }
+
+    @Override
+    public void append(final char[] data, final int start, final int len) {
+        assert array != null;
+
+        makeSureRoomSize(len);
+        final char[] chars = array;
+        final int startIndex = this.start + length;
+        for (int i = 0; i < len; i++) { // a number mostly, so too short for System.arraycopy() to pay off
+            chars[startIndex + i] = data[start + i];
         }
         length += len;
     }

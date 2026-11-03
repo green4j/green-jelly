@@ -147,4 +147,36 @@ class AsciiByteArrayWriterTest {
         final AsciiByteArrayWriter.Frame frame = writer.append(3);
         assertThrows(UnsupportedOperationException.class, () -> frame.subSequence(0, 2));
     }
+
+    @Test
+    void testAppendCharGrowingArrayWithStart() {
+        final AsciiByteArrayWriter writer = new AsciiByteArrayWriter(new byte[10], 8);
+        writer.append('a');
+        writer.append('b');
+        assertEquals("ab", writer.toString());
+    }
+
+    @Test
+    void testBulkAppendOfNonAsciiChars() {
+        final String expected = "ab\\u0436cd";
+
+        final AsciiByteArrayWriter fromString = new AsciiByteArrayWriter(2);
+        fromString.append("xab\u0436cdx", 1, 5);
+        assertEquals(expected, fromString.toString());
+
+        final AsciiByteArrayWriter fromCharSequence = new AsciiByteArrayWriter(2);
+        fromCharSequence.append(new StringBuilder("xab\u0436cdx"), 1, 5);
+        assertEquals(expected, fromCharSequence.toString());
+
+        final AsciiByteArrayWriter fromChars = new AsciiByteArrayWriter(2);
+        fromChars.append("xab\u0436cdx".toCharArray(), 1, 5);
+        assertEquals(expected, fromChars.toString());
+    }
+
+    @Test
+    void testEscapingOfAllRangesOfChars() {
+        final AsciiByteArrayWriter writer = new AsciiByteArrayWriter(10);
+        writer.append("\u0080\u00ff\u0100\u0436\u07ff\u0800\u4e2d\u7fff\u8000\uffff");
+        assertEquals("\\u0080\\u00ff\\u0100\\u0436\\u07ff\\u0800\\u4e2d\\u7fff\\u8000\\uffff", writer.toString());
+    }
 }

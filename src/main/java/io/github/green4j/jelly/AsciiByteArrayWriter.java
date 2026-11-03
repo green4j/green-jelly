@@ -128,9 +128,9 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
     public void append(final char c) {
         assert array != null;
 
-        int charIndex = start + length;
-
         makeSureRoomSize(6);
+
+        int charIndex = start + length;
 
         if (c < 0x80) {
             length++;
@@ -141,22 +141,6 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
         length += 6;
         array[charIndex++] = (byte) '\\';
         array[charIndex++] = (byte) 'u';
-
-        if (c < 0x800) { // 2 bytes
-            array[charIndex++] = (byte) '0';
-            array[charIndex++] = (byte) '0';
-            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
-            array[charIndex] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
-            return;
-        }
-        if (c < 0x8000) { // 3 bytes
-            array[charIndex++] = (byte) '0';
-            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 8 & 0x000f];
-            array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
-            array[charIndex] = (byte) JsonGenerator.HEX_DIGITS[c & 0x000f];
-            return;
-        }
-        // 4 bytes
         array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 12 & 0x000f];
         array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 8 & 0x000f];
         array[charIndex++] = (byte) JsonGenerator.HEX_DIGITS[c >>> 4 & 0x000f];
@@ -174,9 +158,68 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
 
     @Override
     public void append(final CharSequence data, final int start, final int len) {
-        for (int i = 0; i < len; i++) {
+        final int plain = data instanceof String
+                ? appendPlain((String) data, start, len)
+                : appendPlain(data, start, len);
+        for (int i = plain; i < len; i++) {
             append(data.charAt(start + i));
         }
+    }
+
+    @Override
+    public void append(final char[] data, final int start, final int len) {
+        makeSureRoomSize(len);
+        final byte[] bytes = array;
+        final int to = this.start + length;
+        int plain = 0;
+        while (plain < len) {
+            final char c = data[start + plain];
+            if (c >= 0x80) {
+                break;
+            }
+            bytes[to + plain] = (byte) c;
+            plain++;
+        }
+        length += plain;
+        for (int i = plain; i < len; i++) {
+            append(data[start + i]);
+        }
+    }
+
+    // A String has a call site of its own: unlike CharSequence.charAt(), which is a real
+    // virtual call in a process using several CharSequences, String.charAt() is always inlined.
+    private int appendPlain(final String data, final int start, final int len) {
+        makeSureRoomSize(len);
+        final byte[] bytes = array;
+        final int to = this.start + length;
+        int plain = 0;
+        while (plain < len) {
+            final char c = data.charAt(start + plain);
+            if (c >= 0x80) {
+                break;
+            }
+            bytes[to + plain] = (byte) c;
+            plain++;
+        }
+        length += plain;
+        return plain;
+    }
+
+    private int appendPlain(final CharSequence data, final int start, final int len) {
+        makeSureRoomSize(len);
+        final byte[] bytes = array;
+        final int to = this.start + length;
+        int plain = 0;
+        while (plain < len) {
+            final char c = data.charAt(start + plain);
+            if (c >= 0x80) {
+                break;
+            }
+            bytes[to + plain] = (byte) c;
+            plain++;
+        }
+        length += plain;
+        return plain;
     }
 
     @Override

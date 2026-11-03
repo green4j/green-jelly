@@ -24,6 +24,7 @@
 package io.github.green4j.jelly;
 
 import java.io.IOException;
+import java.io.Writer;
 
 public final class AppendableWriter<T extends Appendable> implements BufferingWriter {
     private final Frame frame = new Frame() {
@@ -118,6 +119,26 @@ public final class AppendableWriter<T extends Appendable> implements BufferingWr
         try {
             tryPushFrame();
             output.append(data, start, start + len);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void append(final char[] data, final int start, final int len) {
+        assert output != null;
+
+        try {
+            tryPushFrame();
+            if (output instanceof StringBuilder) {
+                ((StringBuilder) output).append(data, start, len);
+            } else if (output instanceof Writer) {
+                ((Writer) output).write(data, start, len);
+            } else {
+                for (int i = 0; i < len; i++) {
+                    output.append(data[start + i]);
+                }
+            }
         } catch (final IOException e) {
             throw new RuntimeException(e);
         }
