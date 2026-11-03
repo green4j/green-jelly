@@ -100,6 +100,58 @@ public class JsonValueBuilderTest {
     }
 
     @Test
+    void keepsNumbersTheSameWayInArraysAsElsewhere() {
+        for (final String number : new String[] {"0", "-12", "3.25", "4e2", "5.5E-3"}) {
+            final Object expected = fromBytes(number).value();
+            final Object inArray = fromBytes("[" + number + "]").asArrayRequired().items().get(0).value();
+            assertEquals(expected.getClass(), inArray.getClass(), number);
+            assertEquals(expected, inArray, number);
+        }
+    }
+
+    @Test
+    void keepsOverflownNumbersExactWithTheParserGiven() {
+        final String[] numbers = {"99999999999999999999.5", "-12345678901234567890123", "1.00000000000000000001e-5"};
+        final String document = "[" + String.join(",", numbers) + ",{\"n\":" + numbers[0] + "}]";
+        final byte[] bytes = utf8(document);
+
+        final JsonParser charsParser = new JsonParser();
+        final JsonValueBuilder charsBuilder = new JsonValueBuilder(charsParser);
+        charsParser.setListener(charsBuilder);
+        charsParser.parseAndEoj(document);
+        assertOverflownNumbers(numbers, charsBuilder.value());
+
+        final Utf8JsonParser bytesParser = new Utf8JsonParser();
+        final JsonValueBuilder bytesBuilder = new JsonValueBuilder(bytesParser);
+        bytesParser.setListener(bytesBuilder);
+        bytesParser.parseAndEoj(bytes);
+        assertOverflownNumbers(numbers, bytesBuilder.value());
+
+        for (int i = 0; i < bytes.length; i++) {
+            bytesParser.parse(bytes, i, 1);
+        }
+        bytesParser.eoj();
+        assertOverflownNumbers(numbers, bytesBuilder.value());
+
+        charsParser.parseAndEoj(numbers[1]);
+        assertEquals(new BigDecimal(numbers[1]), charsBuilder.value().asDecimalRequired());
+    }
+
+    @Test
+    void truncatesOverflownNumbersWithNoParserGiven() {
+        final BigDecimal truncated = fromBytes("99999999999999999999.5").asDecimalRequired();
+        assertEquals(0, new BigDecimal("99999999999999999900").compareTo(truncated), truncated.toString());
+    }
+
+    private static void assertOverflownNumbers(final String[] numbers, final JsonValue value) {
+        final JsonArray array = value.asArrayRequired();
+        for (int i = 0; i < numbers.length; i++) {
+            assertEquals(new BigDecimal(numbers[i]), array.getDecimalRequired(i), numbers[i]);
+        }
+        assertEquals(new BigDecimal(numbers[0]), array.getObjectRequired(numbers.length).getDecimalRequired("n"));
+    }
+
+    @Test
     void keepsNullMembers() {
         final JsonObject object = fromBytes("{\"n\":null,\"v\":1}").asObjectRequired();
         assertTrue(object.hasMember("n"));

@@ -377,6 +377,7 @@ final StringWriter stringWriter = new StringWriter();
 json.toJsonAndEoj(stringWriter);
 System.out.println(stringWriter);
 ```
+A number whose mantissa doesn't fit into a `long` is written truncated to 18 digits, with no rounding.
 
 To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
 ```java
@@ -390,8 +391,9 @@ To drop a document being parsed, call `reset()`.
 The tree is built by `JsonValueBuilder`, which is a `JsonParserListener`, so it can be given to any parser.
 With `Utf8JsonParser` a `JsonValue` is built right from UTF-8 bytes, in one pass and with no decoding to chars beforehand:
 ```java
-final JsonValueBuilder builder = new JsonValueBuilder();
-final Utf8JsonParser parser = new Utf8JsonParser().setListener(builder);
+final Utf8JsonParser parser = new Utf8JsonParser();
+final JsonValueBuilder builder = new JsonValueBuilder(parser); // the parser gives the exact text of an overflown number
+parser.setListener(builder);
 
 parser.parseAndEoj(bytes); // a byte[] or a ByteBuffer, or several parse() calls with the parts of the document
 if (parser.hasError()) {

@@ -24,17 +24,22 @@
 package io.github.green4j.jelly.simple;
 
 import io.github.green4j.jelly.JsonNumber;
+import io.github.green4j.jelly.JsonParser;
 import io.github.green4j.jelly.JsonParserListener;
+import io.github.green4j.jelly.Utf8JsonParser;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.function.Supplier;
 
 /**
  * Builds a {@link JsonValue} of a JSON document from the events of any parser, so a tree can be built
  * from chars with {@link io.github.green4j.jelly.JsonParser} as well as right from UTF-8 bytes with
  * {@link io.github.green4j.jelly.Utf8JsonParser}, in one pass and with no decoding of the bytes beforehand:
  * <pre>{@code
- * final JsonValueBuilder builder = new JsonValueBuilder();
- * final Utf8JsonParser parser = new Utf8JsonParser().setListener(builder);
+ * final Utf8JsonParser parser = new Utf8JsonParser();
+ * final JsonValueBuilder builder = new JsonValueBuilder(parser);
+ * parser.setListener(builder);
  * parser.parseAndEoj(bytes);
  * if (parser.hasError()) {
  *     ...
@@ -45,15 +50,31 @@ import java.util.ArrayList;
  * The builder doesn't throw: an error is reported by the parser, with {@code hasError()}, and the value
  * of such a document is {@code null}. If {@code eoj()} isn't called after an error, the parser has to be
  * reset before the next document.
+ * <p>
+ * A number which overflows the mantissa is kept exact, as {@link BigDecimal}, if the builder is given the parser
+ * it listens to. A builder created with no parser keeps such a number truncated, as the parser gives it.
  */
 public final class JsonValueBuilder implements JsonParserListener {
     private final ArrayList<JsonValue> stack = new ArrayList<>();
+    private final Supplier<CharSequence> overflownNumber;
 
     private JsonValue currentValue;
     private String currentMember;
     private boolean failed;
 
     private JsonValue value;
+
+    public JsonValueBuilder() {
+        overflownNumber = null;
+    }
+
+    public JsonValueBuilder(final JsonParser parser) {
+        overflownNumber = parser::overflownNumber;
+    }
+
+    public JsonValueBuilder(final Utf8JsonParser parser) {
+        overflownNumber = parser::overflownNumber;
+    }
 
     /**
      * Returns the value of the last document ended.
@@ -192,6 +213,36 @@ public final class JsonValueBuilder implements JsonParserListener {
         }
 
         throw new IllegalStateException("Scalar number " + number + " isn't allowed here");
+    }
+
+    @Override
+    public boolean onNumberValue(final JsonNumber number, final boolean overflow) {
+        if (overflow && overflownNumber != null) {
+            onDecimal(new BigDecimal(overflownNumber.get().toString()));
+            return true;
+        }
+        return onNumberValue(number);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void onDecimal(final BigDecimal decimal) {
+        if (currentValue == null) {
+            currentValue = JsonValue.newDecimal(decimal);
+            return;
+        }
+
+        final Object container = currentValue.value();
+
+        if (container instanceof JsonObject) {
+            ((JsonObject) container).putDecimal(currentMember, decimal);
+            return;
+        }
+        if (container instanceof JsonArray) {
+            ((JsonArray) container).addDecimal(decimal);
+            return;
+        }
+
+        throw new IllegalStateException("Scalar number " + decimal + " isn't allowed here");
     }
 
     @Override

@@ -29,6 +29,8 @@ import io.github.green4j.jelly.JsonNumber;
 
 import java.io.Writer;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 
 public final class JsonValue {
     public static JsonValue newObject() {
@@ -77,6 +79,10 @@ public final class JsonValue {
     }
 
     static final BigDecimal ZERO = new BigDecimal(0);
+
+    // a mantissa of 18 digits always fits into long
+    private static final MathContext WRITTEN_MANTISSA = new MathContext(18, RoundingMode.DOWN);
+
     private final Object value;
 
     private JsonValue(final Object value) {
@@ -193,7 +199,7 @@ public final class JsonValue {
             final BigDecimal result;
             if (number instanceof Float
                     || number instanceof Double) {
-                result = new BigDecimal(number.doubleValue());
+                result = BigDecimal.valueOf(number.doubleValue());
             } else {
                 result = new BigDecimal(number.longValue());
             }
@@ -260,7 +266,10 @@ public final class JsonValue {
             return;
         }
         if (value instanceof Number) {
-            final BigDecimal decimal = asDecimal();
+            BigDecimal decimal = asDecimal();
+            if (decimal.unscaledValue().bitLength() > 63) { // the mantissa doesn't fit into long, so it's truncated
+                decimal = decimal.round(WRITTEN_MANTISSA);
+            }
             jsonWriter.numberValue(decimal.unscaledValue().longValue(), -decimal.scale());
             return;
         }

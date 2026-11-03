@@ -33,7 +33,7 @@ import io.github.green4j.jelly.JsonParser;
  */
 public class JsonValueParser {
     private final JsonParser parser = new JsonParser();
-    private final JsonValueBuilder builder = new JsonValueBuilder();
+    private final JsonValueBuilder builder = new JsonValueBuilder(parser);
 
     public JsonValueParser() {
         parser.setListener(builder);
