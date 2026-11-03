@@ -164,11 +164,19 @@ public final class JsonGenerator {
         writeStructureStarted('{', STATE_OBJECT_STARTED);
     }
 
+    public void objectMember(final CharSequence name, final boolean escaping) {
+        objectMember(name, 0, name.length(), escaping);
+    }
+
     public void objectMember(final CharSequence name) {
-        objectMember(name, 0, name.length());
+        objectMember(name, 0, name.length(), false);
     }
 
     public void objectMember(final CharSequence name, final int start, final int len) {
+        objectMember(name, start, len, false);
+    }
+
+    public void objectMember(final CharSequence name, final int start, final int len, final boolean escaping) {
         final BufferingWriter out = output;
 
         assert out != null;
@@ -187,7 +195,11 @@ public final class JsonGenerator {
         }
 
         out.append('\"');
-        out.append(name, start, len);
+        if (escaping) {
+            writeEscaped(out, name, start, len);
+        } else {
+            out.append(name, start, len);
+        }
         out.append('\"');
         out.append(':');
 

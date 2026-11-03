@@ -137,6 +137,49 @@ public class JsonGeneratorTest {
     }
 
     @Test
+    public void objectMemberTest() {
+        final StringBuilder text = new StringBuilder();
+        final AppendableWriter<StringBuilder> writer = new AppendableWriter<>(text);
+        final JsonGenerator generator = new JsonGenerator(false);
+        generator.setOutput(writer);
+
+        final String name = "a\"b\\c\n\u0001\u2028";
+
+        generator.startObject();
+        generator.objectMember(name, true);
+        generator.numberValue(1);
+        generator.objectMember("x" + name + "x", 1, name.length(), true);
+        generator.numberValue(2);
+        generator.objectMember("plain");
+        generator.numberValue(3);
+        generator.objectMember("xplainx", 1, 5);
+        generator.numberValue(4);
+        generator.endObject();
+        generator.eoj();
+
+        final String escaped = "\"" + escape(name) + "\"";
+        assertEquals("{" + escaped + ":1," + escaped + ":2,\"plain\":3,\"plain\":4}", text.toString());
+
+        final JsonEvents events = new JsonEvents();
+        new JsonParser(new CopyingStringBuilder()).setListener(events).parseAndEoj(text);
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember(name);
+        expectedEvents.onNumberValue(1, 0, false);
+        expectedEvents.onObjectMember(name);
+        expectedEvents.onNumberValue(2, 0, false);
+        expectedEvents.onObjectMember("plain");
+        expectedEvents.onNumberValue(3, 0, false);
+        expectedEvents.onObjectMember("plain");
+        expectedEvents.onNumberValue(4, 0, false);
+        expectedEvents.onObjectEnded();
+        expectedEvents.onJsonEnded();
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
     public void numberTest() {
         final StringBuilder text = new StringBuilder();
         final AppendableWriter<StringBuilder> writer = new AppendableWriter<>(text);

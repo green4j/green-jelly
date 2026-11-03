@@ -1055,6 +1055,38 @@ public class JsonParserTest {
     }
 
     @Test
+    public void testDataWithoutLexemasBeforeJson() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onArrayStarted();
+        expectedEvents.onNumberValue(1, 0, false);
+        expectedEvents.onArrayEnded();
+        expectedEvents.onJsonEnded();
+
+        for (int i = 0; i < 2; i++) { // the second JSON goes after eoj()
+            events.clear();
+            parser.parse("");
+            parser.parse(" \n");
+            parser.parse("xx", 1, 0);
+            parser.parse("[1]");
+            parser.eoj();
+            assertEquals(expectedEvents, events);
+        }
+
+        events.clear();
+        parser.parse("");
+        parser.eoj();
+
+        final JsonEvents expectedEmpty = new JsonEvents();
+        expectedEmpty.onJsonStarted();
+        expectedEmpty.onJsonEnded();
+        assertEquals(expectedEmpty, events);
+    }
+
+    @Test
     public void testAnyCutOfDataGivesTheSameEvents() {
         final String json = "{\"name\":\"va\\\"l\\u0041ue\", \"t\":true,\"f\":false,\"n\":null,\n"
                 + "\"numbers\":[0,-12,+3.25,4e2,5.5E-3,-0.0,99999999999999999999.5e1],"

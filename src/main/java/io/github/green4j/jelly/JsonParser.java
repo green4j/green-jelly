@@ -605,6 +605,8 @@ public final class JsonParser {
                 doReset();
             }
             lnr.onJsonStarted();
+            // the data may have no lexemas, the notification must not be repeated with the next data
+            currentLexemaPosition = 0;
         }
 
         int r = 0;
