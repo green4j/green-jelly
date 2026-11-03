@@ -384,6 +384,23 @@ final JsonValueParser parser = new JsonValueParser();
 final JsonValue json = parser.parseAndEoj("{ \"name\": \"Mike\", \"age\": 23 }");
 System.out.println(json);
 ```
+An error is thrown as `IllegalArgumentException`, and the same parser can be used for the next document after it.
+To drop a document being parsed, call `reset()`.
+
+The tree is built by `JsonValueBuilder`, which is a `JsonParserListener`, so it can be given to any parser.
+With `Utf8JsonParser` a `JsonValue` is built right from UTF-8 bytes, in one pass and with no decoding to chars beforehand:
+```java
+final JsonValueBuilder builder = new JsonValueBuilder();
+final Utf8JsonParser parser = new Utf8JsonParser().setListener(builder);
+
+parser.parseAndEoj(bytes); // a byte[] or a ByteBuffer, or several parse() calls with the parts of the document
+if (parser.hasError()) {
+    throw new IllegalArgumentException(parser.getError() + " at " + parser.getErrorPosition());
+}
+final JsonValue json = builder.value();
+```
+The builder can be reused for the next document. The builder doesn't throw: an error is reported by the parser,
+and the value of such a document is `null`. If `eoj()` isn't called after an error, reset the parser before the next document.
 
 ## License
 The code is available under the terms of the [MIT License](http://opensource.org/licenses/MIT).
