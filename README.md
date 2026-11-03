@@ -242,204 +242,39 @@ Each of the classes has its own internal mutable buffer which can be passed to I
 
 ## Performance
 
-A JMH test, which sums all numbers in the document in streaming style, compared to Gson (v.2.8.5) and Jackson (v.2.9.7):
+The JMH benchmarks live in the `src/jmh` source set, which is built by `./gradlew build`, but doesn't get into the released artifacts.
+Run them all, or choose some of them and pass any other JMH options, with:
 ```
-Benchmark                                                   Mode  Cnt      Score     Error  Units
-JsonParserPerformanceComparison.greenJellyFlyweightSumTest  avgt   25  17747.965 +- 257.699  ns/op
-JsonParserPerformanceComparison.gsonJsonReaderSumTest       avgt   25  23442.288 +- 109.931  ns/op
-JsonParserPerformanceComparison.jacksonJsonParserSumTest    avgt   25  18336.310 +- 220.573  ns/op
+./gradlew jmh
+./gradlew jmh -PjmhArgs="JsonParserBenchmark -p document=DECIMALS -prof gc"
 ```
 
-<details><summary markdown="span"><code>Source code of the test</code></summary>
-<p>
+| Benchmark                          | What is measured                                                                                  |
+|------------------------------------|---------------------------------------------------------------------------------------------------|
+| `JsonParserBenchmark`              | Parsing of a whole document, given as a `String`, of every kind and with both string builders     |
+| `JsonParserInputBenchmark`         | Parsing in a process which gives the parser several `CharSequence` implementations                |
+| `JsonParserChunkedBenchmark`       | Parsing of a document coming part by part, with lexemas cut by the boundaries of the parts        |
+| `JsonGeneratorBenchmark`           | Generating of a document of every kind with every writer, with and without indenting              |
+| `JsonParserComparisonBenchmark`    | The parser compared to Jackson and Gson: every member name, string and number of a document is read |
+| `JsonGeneratorComparisonBenchmark` | The generator compared to Jackson and Gson: the same kinds of documents, the strings are escaped   |
 
-```java
-import com.fasterxml.jackson.core.JsonFactory;
-import com.google.gson.stream.JsonReader;
-import com.google.gson.stream.JsonToken;
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.concurrent.TimeUnit;
-import io.github.green4j.jelly.FlyweightStringBuilder;
-import io.github.green4j.jelly.JsonNumber;
-import io.github.green4j.jelly.JsonParser;
-import io.github.green4j.jelly.JsonParserListenerAdapter;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Mode;
-import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
+Comparison with Jackson 2.21.6 and Gson 2.13.1 on documents of 40 records, Apple M1 Pro, Corretto 21.0.3,
+a median of 3 forks, ns/op (indicative numbers, less is better):
 
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
-public class JsonParserPerformanceComparison {
+| Document | Parser: green-jelly | Jackson | Gson | Generator: green-jelly | Jackson | Gson |
+|----------|--------------------:|--------:|-----:|-----------------------:|--------:|-----:|
+| NUMBERS  | 4985                | 11060   | 12717 | 4392                  | 4760    | 17775 |
+| DECIMALS | 7387                | 11514   | 14514 | 5043                  | 8409    | 17702 |
+| STRINGS  | 5851                | 9807    | 9709  | 6311                  | 6420    | 13356 |
 
-    public static final String JSON = "[\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":true},\n"
-        + "  {\"property1\":100,\"property2\":200,\"property3\":300,\"property4\":[400,500,600,700],\"property5\":false}\n"
-        + "]";
+The parser of green-jelly unescapes the strings with `CopyingStringBuilder`, Jackson gives the chars of a string from its buffer
+and Gson creates a `String`. A decimal is given by green-jelly as a mantissa and an exponent, while Jackson and Gson parse
+it to a `double` and the generators of them format a `double`. Jackson and green-jelly generate UTF-8 bytes, Gson generates chars.
 
-    @State(Scope.Thread)
-    public static class JellyFlyweightSum extends JsonParserListenerAdapter {
-
-        public JsonParser parser;
-        public long value;
-
-        @Setup(Level.Invocation)
-        public void doSetup() {
-            value = 0;
-            parser = new JsonParser(new FlyweightStringBuilder());
-            parser.setListener(this);
-        }
-
-        @TearDown(Level.Invocation)
-        public void doTearDown() {
-            parser.eoj();
-        }
-
-        @Override
-        public boolean onNumberValue(final JsonNumber number) {
-            value += number.mantissa();
-            return true;
-        }
-    }
-
-    @State(Scope.Thread)
-    public static class GsonSum {
-        JsonReader reader;
-        long value;
-
-        @Setup(Level.Invocation)
-        public void doSetup() {
-            value = 0;
-            reader = new JsonReader(new StringReader(JSON));
-        }
-
-        @TearDown(Level.Invocation)
-        public void doTearDown() throws IOException {
-            reader.close();
-        }
-    }
-
-    @State(Scope.Thread)
-    public static class JacksonSum {
-        com.fasterxml.jackson.core.JsonParser parser;
-        long value;
-
-        @Setup(Level.Invocation)
-        public void doSetup() throws Exception {
-            value = 0;
-            final JsonFactory factory = new JsonFactory();
-            parser = factory.createParser(JSON);
-        }
-
-        @TearDown(Level.Invocation)
-        public void doTearDown() throws Exception {
-            parser.close();
-        }
-    }
-
-    @Benchmark
-    public void greenJellyFlyweightSumTest(final JellyFlyweightSum sum) {
-        sum.parser.parse(JSON);
-    }
-
-    @Benchmark
-    public void gsonJsonReaderSumTest(final GsonSum sum) throws IOException {
-        final JsonReader reader = sum.reader;
-        _end:
-        while (true) {
-            final JsonToken token = reader.peek();
-            switch (token) {
-                case BEGIN_ARRAY:
-                    reader.beginArray();
-                    break;
-                case END_ARRAY:
-                    reader.endArray();
-                    break;
-                case BEGIN_OBJECT:
-                    reader.beginObject();
-                    break;
-                case END_OBJECT:
-                    reader.endObject();
-                    break;
-                case NAME:
-                    reader.skipValue();
-                    break;
-                case STRING:
-                    reader.skipValue();
-                    break;
-                case NUMBER:
-                    sum.value += reader.nextLong();
-                    break;
-                case BOOLEAN:
-                    reader.skipValue();
-                    break;
-                case NULL:
-                    reader.skipValue();
-                    break;
-                case END_DOCUMENT:
-                    break _end;
-            }
-        }
-    }
-
-    @Benchmark
-    public void jacksonJsonParserSumTest(final JacksonSum sum) throws IOException {
-        final com.fasterxml.jackson.core.JsonParser parser = sum.parser;
-        com.fasterxml.jackson.core.JsonToken token;
-        while ((token = parser.nextToken()) != null) {
-            if (token == com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT) {
-                sum.value += parser.getLongValue();
-            }
-        }
-    }
-}
-```
-</p>
-</details>
+A few things to know to get the most out of the library:
+* the parser reads the given data in place, with `CharSequence.charAt()`, nothing is copied but the values of the strings. It's the fastest when a process gives the parser one implementation of `CharSequence` only: then the calls are inlined, while with several implementations every call is a virtual one
+* with `FlyweightStringBuilder` the strings of a document aren't copied at all, so it's the best choice if the whole document is available and there is no need to unescape the values
+* a custom `BufferingWriter` should override `append(char[], int, int)` with a bulk copying, since the generator writes all the numbers with it
 
 ## JSON Value
 

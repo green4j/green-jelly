@@ -69,6 +69,7 @@ public final class JsonGenerator {
     private static final String NULL = "null";
 
     private static final String[] UNICODE_ASCII_LOW = new String[0x1F + 1];
+    private static final String[] ESCAPES = new String[128];
     // In ECMAScript, \u2028 and \u2029 are line terminators and must be encoded
     private static final String UNICODE_2028 = "\\u2028"; // line separator <LS>
     private static final String UNICODE_2029 = "\\u2029"; // paragraph separator <PS>
@@ -82,10 +83,11 @@ public final class JsonGenerator {
 
     private static final int MAX_NUMBER_OF_DIGITS = 19;
 
-    private static final int DECIMAL_FORMAT_NO_POINT = 0; // no decimal point
-    private static final int DECIMAL_FORMAT_INSIDE_MANTISSA = 1; // decimal point inside the mantissa
-    private static final int DECIMAL_FORMAT_BEFORE_MANTISSA = 2; // decimal point comes before the mantissa
-    private static final int DECIMAL_FORMAT_EXP = 3; // exponential notation
+    // A number is formatted around this index of the number buffer: the digits of the mantissa are written
+    // backward from it. What goes before the digits is a sign, '0.' and 5 zeros, what goes after them
+    // is up to 18 zeros or an exponent.
+    private static final int NUMBER_DIGITS_END = 28;
+    private static final int NUMBER_BUFFER_SIZE = NUMBER_DIGITS_END + 18;
 
     static final char[] HEX_DIGITS = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
 
@@ -96,9 +98,20 @@ public final class JsonGenerator {
         for (int i = 0x10; i < UNICODE_ASCII_LOW.length; i++) {
             UNICODE_ASCII_LOW[i] = "\\u00" + HEX_DIGITS[i >>> 4 & 0x000f] + HEX_DIGITS[i & 0x000f];
         }
+        System.arraycopy(UNICODE_ASCII_LOW, 0, ESCAPES, 0, UNICODE_ASCII_LOW.length);
+        ESCAPES[0x08] = "\\b";
+        ESCAPES[0x09] = "\\t";
+        ESCAPES[0x0A] = "\\n";
+        ESCAPES[0x0C] = "\\f";
+        ESCAPES[0x0D] = "\\r";
+        ESCAPES['/'] = "\\/";
+        ESCAPES['\\'] = "\\\\";
+        ESCAPES['"'] = "\\\"";
     }
 
     private final boolean indent;
+
+    private final char[] numberBuffer = new char[NUMBER_BUFFER_SIZE];
 
     private int[] scopeStack = new int[8];
     private int scopeStackDepth;
@@ -175,7 +188,8 @@ public final class JsonGenerator {
 
         out.append('\"');
         out.append(name, start, len);
-        out.append("\":");
+        out.append('\"');
+        out.append(':');
 
         replaceScope(STATE_OBJECT_MEMBER_NAME);
     }
@@ -336,55 +350,42 @@ public final class JsonGenerator {
         out.append('\"');
 
         if (escaping) {
-            for (int i = start; i < start + len; i++) {
-                final char c = value.charAt(i);
-                switch (c) {
-                    case 0x08:
-                        out.append("\\b");
-                        break;
-                    case 0x09:
-                        out.append("\\t");
-                        break;
-                    case 0x0A:
-                        out.append("\\n");
-                        break;
-                    case 0x0C:
-                        out.append("\\f");
-                        break;
-                    case 0x0D:
-                        out.append("\\r");
-                        break;
-                    case '/':
-                        out.append("\\/");
-                        break;
-                    case '\\':
-                        out.append("\\\\");
-                        break;
-                    case '"':
-                        out.append("\\\"");
-                        break;
-                    case 0x2028:
-                        out.append(UNICODE_2028);
-                        break;
-                    case 0x2029:
-                        out.append(UNICODE_2029);
-                        break;
-                    default:
-                        if (c < UNICODE_ASCII_LOW.length) {
-                            out.append(UNICODE_ASCII_LOW[c]);
-                            break;
-                        }
-                        out.append(c);
-                        break;
-                }
-            }
+            writeEscaped(out, value, start, len);
         } else {
             out.append(value, start, len);
         }
 
-        out.append("\"");
+        out.append('\"');
 
         afterValueAdded(scope);
+    }
+
+    private static void writeEscaped(
+            final BufferingWriter out,
+            final CharSequence value,
+            final int start,
+            final int len) {
+        final int end = start + len;
+        int plainStart = start;
+        for (int i = start; i < end; i++) {
+            final char c = value.charAt(i);
+            final String escape;
+            if (c < ESCAPES.length) {
+                escape = ESCAPES[c];
+            } else if (c == 0x2028) {
+                escape = UNICODE_2028;
+            } else if (c == 0x2029) {
+                escape = UNICODE_2029;
+            } else {
+                escape = null;
+            }
+            if (escape != null) {
+                out.append(value, plainStart, i - plainStart);
+                out.append(escape);
+                plainStart = i + 1;
+            }
+        }
+        out.append(value, plainStart, end - plainStart);
     }
 
     private void writeStringDirect(final String value) {
@@ -418,7 +419,7 @@ public final class JsonGenerator {
             writeDecimalNumber(out, mantissa, exp);
         }
 
-        out.append("\"");
+        out.append('\"');
 
         afterValueAdded(scope);
     }
@@ -506,323 +507,111 @@ public final class JsonGenerator {
         scopeStack[scopeStackDepth - 1] = scope;
     }
 
-    private static void writeLongNumber(final BufferingWriter out, final long mantissa) {
-        long mts = mantissa;
-        if (mts == Long.MIN_VALUE) {
-            out.append("-9223372036854775808");
-            return;
+    private void writeLongNumber(final BufferingWriter out, final long mantissa) {
+        final char[] buf = numberBuffer;
+        int first = writeDigits(buf, NUMBER_DIGITS_END, mantissa);
+        if (mantissa < 0) {
+            buf[--first] = '-';
         }
-        if (mts == 0) {
-            out.append("0");
+        out.append(buf, first, NUMBER_DIGITS_END - first);
+    }
+
+    private void writeDecimalNumber(final BufferingWriter out, final long mantissa, final int exp) {
+        if (mantissa == 0) {
+            out.append('0');
             return;
         }
 
-        char sgn = 0;
-        final int size;
-        if (mts < 0) {
-            sgn = '-';
-            mts = -mts;
-            size = numberOfDigits(mts) + 1;
+        final char[] buf = numberBuffer;
+
+        int first = NUMBER_DIGITS_END;
+        int last = NUMBER_DIGITS_END;
+
+        if (exp < 0) {
+            // The fractional digits go first, so a decimal point inside the mantissa,
+            // which is the most frequent case, lands in its place with no digits to shift
+            long v = mantissa < 0 ? mantissa : -mantissa;
+            for (int i = exp; i < 0 && v != 0; i++) {
+                final long q = v / 10;
+                buf[--first] = (char) ('0' + (int) (q * 10 - v));
+                v = q;
+            }
+            if (v != 0) {
+                buf[--first] = '.';
+                first = writeDigits(buf, first, v);
+                if (mantissa < 0) {
+                    buf[--first] = '-';
+                }
+                out.append(buf, first, last - first);
+                return;
+            }
         } else {
-            size = numberOfDigits(mts);
+            first = writeDigits(buf, first, mantissa);
         }
 
-        writeLongValueToEndOfTheFrame(out.append(size), mts, sgn);
+        final int numOfDigits = last - first;
+        final long pointPos = (long) exp + numOfDigits;
+
+        if (numOfDigits <= pointPos && pointPos <= MAX_NUMBER_OF_DIGITS) { // no decimal point
+            for (int i = numOfDigits; i < pointPos; i++) {
+                buf[last++] = '0';
+            }
+        } else if (-6 < pointPos && pointPos <= 0) { // the decimal point comes before the mantissa
+            for (long i = pointPos; i < 0; i++) {
+                buf[--first] = '0';
+            }
+            buf[--first] = '.';
+            buf[--first] = '0';
+        } else { // the exponential notation
+            if (numOfDigits > 1) {
+                buf[first - 1] = buf[first];
+                buf[first] = '.';
+                first--;
+            }
+            final long e = pointPos - 1;
+            buf[last++] = 'e';
+            buf[last++] = e < 0 ? '-' : '+';
+            last += numberOfDigits(e);
+            writeDigits(buf, last, e);
+        }
+
+        if (mantissa < 0) {
+            buf[--first] = '-';
+        }
+        out.append(buf, first, last - first);
     }
 
-    private static void writeLongValueToEndOfTheFrame(
-            final BufferingWriter.Frame buf,
-            final long mantissa,
-            final char sign) {
-
-        long mts = mantissa;
-        int currentCharIndex = buf.length();
-
-        long x;
-        int y;
-        while (mts > Integer.MAX_VALUE) {
-            x = mts / 100;
-            y = (int) (mts - ((x << 6) + (x << 5) + (x << 2)));
-            mts = x;
-            buf.setCharAt(--currentCharIndex, DIGIT_ONES[y]);
-            buf.setCharAt(--currentCharIndex, DIGIT_TENS[y]);
+    /**
+     * Writes the digits of the absolute value of a number.
+     *
+     * @param buf the buffer to write to
+     * @param end the index next to the last digit, the digits are written backward from it
+     * @param value the number
+     * @return the index of the first digit
+     */
+    private static int writeDigits(final char[] buf, final int end, final long value) {
+        long v = value < 0 ? value : -value; // negative, since Long.MIN_VALUE has no positive counterpart
+        int p = end;
+        while (v <= -100) {
+            final long q = v / 100;
+            final int r = (int) (q * 100 - v);
+            v = q;
+            buf[--p] = DIGIT_ONES[r];
+            buf[--p] = DIGIT_TENS[r];
         }
-        int x2;
-        int mts2 = (int) mts;
-        while (mts2 >= 65536) {
-            x2 = mts2 / 100;
-            y = mts2 - ((x2 << 6) + (x2 << 5) + (x2 << 2));
-            mts2 = x2;
-            buf.setCharAt(--currentCharIndex, DIGIT_ONES[y]);
-            buf.setCharAt(--currentCharIndex, DIGIT_TENS[y]);
+        final int r = (int) -v;
+        buf[--p] = DIGIT_ONES[r];
+        if (r > 9) {
+            buf[--p] = DIGIT_TENS[r];
         }
-        while (true) {
-            x2 = (mts2 * 52429) >>> (19);
-            y = mts2 - ((x2 << 3) + (x2 << 1));
-            buf.setCharAt(--currentCharIndex, HEX_DIGITS[y]);
-            mts2 = x2;
-            if (mts2 == 0) {
-                break;
-            }
-        }
-        if (sign != 0) {
-            buf.setCharAt(--currentCharIndex, sign);
-        }
+        return p;
     }
 
-    private static void writeDecimalNumber(
-            final BufferingWriter out,
-            final long mantissa,
-            final int exp) {
-
-        long mts = mantissa;
-        int e = exp;
-        if (mts == 0) {
-            out.append("0");
-            return;
+    private static int numberOfDigits(final long value) {
+        int result = 1;
+        for (long v = value; v <= -10 || v >= 10; v /= 10) {
+            result++;
         }
-
-        char mantissaSign = 0;
-        int size;
-        final int numOfDigits;
-        if (mts < 0) {
-            mantissaSign = '-';
-            mts = -mts;
-            numOfDigits = numberOfDigits(mts);
-            size = numOfDigits + 1;
-        } else {
-            numOfDigits = numberOfDigits(mts);
-            size = numOfDigits;
-        }
-
-        final int pointPos = e + numOfDigits;
-
-        char expSign = '+';
-        int additionalNumbers = 0;
-        int expNumOfDigits = 0;
-
-        int mode = DECIMAL_FORMAT_NO_POINT;
-        if (numOfDigits <= pointPos && pointPos <= MAX_NUMBER_OF_DIGITS) { // mode = DECIMAL_FORMAT_NO_POINT
-
-            additionalNumbers = pointPos - numOfDigits; // leading zeros
-            size += additionalNumbers;
-
-        } else if (0 < pointPos
-                && pointPos <= MAX_NUMBER_OF_DIGITS
-                && pointPos < numOfDigits) {
-
-            mode = DECIMAL_FORMAT_INSIDE_MANTISSA;
-            size++; // for the point
-
-        } else if (-6 < pointPos && pointPos <= 0) {
-
-            mode = DECIMAL_FORMAT_BEFORE_MANTISSA;
-            size = size + 2 + (-pointPos); // for 0 and the point and -pointPos zeros before the mantissa
-
-        } else if (pointPos <= -6 || pointPos > MAX_NUMBER_OF_DIGITS) {
-            mode = DECIMAL_FORMAT_EXP;
-
-            e = pointPos - 1;
-            if (e < 0) {
-                expSign = '-';
-                e = -e;
-            }
-
-            expNumOfDigits = numberOfDigits(e);
-            size = size + (numOfDigits > 1 ? 1 : 0) // for the point if more than 1 digit
-                    + 2 + expNumOfDigits; // and 'e' and the sign and exponent's numbers
-        }
-
-        final BufferingWriter.Frame buf = out.append(size);
-
-        int currentCharIndex = size;
-
-        switch (mode) {
-            case DECIMAL_FORMAT_NO_POINT:
-                for (int i = 0; i < additionalNumbers; i++) {
-                    buf.setCharAt(--currentCharIndex, '0');
-                }
-                break;
-            case DECIMAL_FORMAT_EXP:
-                writeLongValueToEndOfTheFrame(buf, e, expSign);
-                currentCharIndex = currentCharIndex - expNumOfDigits - 1;
-                buf.setCharAt(--currentCharIndex, 'e');
-                break;
-        }
-
-        int remainingNumCount = numOfDigits;
-
-        long x;
-        int y;
-        while (mts > Integer.MAX_VALUE) {
-            x = mts / 100;
-            y = (int) (mts - ((x << 6) + (x << 5) + (x << 2)));
-            mts = x;
-
-            buf.setCharAt(--currentCharIndex, DIGIT_ONES[y]);
-            remainingNumCount--;
-            switch (mode) {
-                case DECIMAL_FORMAT_INSIDE_MANTISSA:
-                    if (remainingNumCount == pointPos) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-                case DECIMAL_FORMAT_EXP:
-                    if (remainingNumCount == 1 && numOfDigits > 1) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-            }
-
-            buf.setCharAt(--currentCharIndex, DIGIT_TENS[y]);
-            remainingNumCount--;
-            switch (mode) {
-                case DECIMAL_FORMAT_INSIDE_MANTISSA:
-                    if (remainingNumCount == pointPos) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-                case DECIMAL_FORMAT_EXP:
-                    if (remainingNumCount == 1 && numOfDigits > 1) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-            }
-        }
-
-        int x2;
-        int mantissa2 = (int) mts;
-        while (mantissa2 >= 65536) {
-            x2 = mantissa2 / 100;
-            y = mantissa2 - ((x2 << 6) + (x2 << 5) + (x2 << 2));
-            mantissa2 = x2;
-
-            buf.setCharAt(--currentCharIndex, DIGIT_ONES[y]);
-            remainingNumCount--;
-            switch (mode) {
-                case DECIMAL_FORMAT_INSIDE_MANTISSA:
-                    if (remainingNumCount == pointPos) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-                case DECIMAL_FORMAT_EXP:
-                    if (remainingNumCount == 1 && numOfDigits > 1) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-            }
-
-            buf.setCharAt(--currentCharIndex, DIGIT_TENS[y]);
-            remainingNumCount--;
-            switch (mode) {
-                case DECIMAL_FORMAT_INSIDE_MANTISSA:
-                    if (remainingNumCount == pointPos) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-                case DECIMAL_FORMAT_EXP:
-                    if (remainingNumCount == 1 && numOfDigits > 1) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-            }
-        }
-
-        while (true) {
-            x2 = (mantissa2 * 52429) >>> (19);
-            y = mantissa2 - ((x2 << 3) + (x2 << 1));
-
-            buf.setCharAt(--currentCharIndex, HEX_DIGITS[y]);
-            remainingNumCount--;
-            switch (mode) {
-                case DECIMAL_FORMAT_INSIDE_MANTISSA:
-                    if (remainingNumCount == pointPos) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-                case DECIMAL_FORMAT_EXP:
-                    if (remainingNumCount == 1 && numOfDigits > 1) {
-                        buf.setCharAt(--currentCharIndex, '.');
-                    }
-                    break;
-            }
-
-            mantissa2 = x2;
-            if (mantissa2 == 0) {
-                break;
-            }
-        }
-
-        if (mode == DECIMAL_FORMAT_BEFORE_MANTISSA) {
-            for (int i = 0; i < -pointPos; i++) {
-                buf.setCharAt(--currentCharIndex, '0');
-            }
-            buf.setCharAt(--currentCharIndex, '.');
-            buf.setCharAt(--currentCharIndex, '0');
-        }
-
-        if (mantissaSign != 0) {
-            buf.setCharAt(--currentCharIndex, mantissaSign);
-        }
-    }
-
-    private static int numberOfDigits(final long x) {
-        assert x >= 0;
-
-        if (x < 1_000_000L) {
-            if (x < 1_000L) {
-                if (x < 100L) {
-                    if (x < 10L) {
-                        return 1;
-                    }
-                    return 2;
-                }
-                return 3;
-            }
-            if (x < 10_000) {
-                return 4;
-            }
-            if (x < 100_000) {
-                return 5;
-            }
-            return 6;
-        }
-        if (x < 1_000_000_000L) {
-            if (x < 100_000_000L) {
-                if (x < 10_000_000L) {
-                    return 7;
-                }
-                return 8;
-            }
-            return 9;
-        }
-        if (x < 100_000_000_000_000L) {
-            if (x < 1_000_000_000_000L) {
-                if (x < 10_000_000_000L) {
-                    return 10;
-                }
-                if (x < 100_000_000_000L) {
-                    return 11;
-                }
-                return 12;
-            }
-            if (x < 10_000_000_000_000L) {
-                return 13;
-            }
-            return 14;
-        }
-        if (x < 100_000_000_000_000_000L) {
-            if (x < 1_000_000_000_000_000L) {
-                return 15;
-            }
-            if (x < 10_000_000_000_000_000L) {
-                return 16;
-            }
-            return 17;
-        }
-        if (x < 1_000_000_000_000_000_000L) {
-            return 18;
-        }
-        return 19;
+        return result;
     }
 }

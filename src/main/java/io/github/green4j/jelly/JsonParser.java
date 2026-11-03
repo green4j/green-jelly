@@ -23,6 +23,8 @@
  */
 package io.github.green4j.jelly;
 
+import java.util.Objects;
+
 /**
  * Parses JSON character sequence.
  */
@@ -113,6 +115,30 @@ public final class JsonParser {
 
     private static final int JSON_STARTED_NOTIFICATION_REQUIRED = -1;
     private static final int RESET_REQUIRED = JSON_STARTED_NOTIFICATION_REQUIRED - 1;
+
+    private static final int RESUME_LEXEMA_REQUIRED = 2;
+
+    private static final int MAX_SAFE_DIGITS = 18;
+
+    private static final char[] LITERAL_EXPECTED_CHARS = new char[LEXEMA_NULL_STARTED_NUL + 1];
+    private static final boolean[] NUMBER_DELIMITERS = new boolean[128];
+
+    static {
+        LITERAL_EXPECTED_CHARS[LEXEMA_TRUE_STARTED_T] = 'r';
+        LITERAL_EXPECTED_CHARS[LEXEMA_TRUE_STARTED_TR] = 'u';
+        LITERAL_EXPECTED_CHARS[LEXEMA_TRUE_STARTED_TRU] = 'e';
+        LITERAL_EXPECTED_CHARS[LEXEMA_FALSE_STARTED_F] = 'a';
+        LITERAL_EXPECTED_CHARS[LEXEMA_FALSE_STARTED_FA] = 'l';
+        LITERAL_EXPECTED_CHARS[LEXEMA_FALSE_STARTED_FAL] = 's';
+        LITERAL_EXPECTED_CHARS[LEXEMA_FALSE_STARTED_FALS] = 'e';
+        LITERAL_EXPECTED_CHARS[LEXEMA_NULL_STARTED_N] = 'u';
+        LITERAL_EXPECTED_CHARS[LEXEMA_NULL_STARTED_NU] = 'l';
+        LITERAL_EXPECTED_CHARS[LEXEMA_NULL_STARTED_NUL] = 'l';
+
+        for (final char c : new char[]{0x09, 0x0a, 0x0d, 0x20, '{', '}', '[', ']', ',', ':'}) {
+            NUMBER_DELIMITERS[c] = true;
+        }
+    }
 
     private static final long MAX_MANTISSA_BASE = 922337203685477579L;
 
@@ -565,6 +591,7 @@ public final class JsonParser {
         this.currentStart = start;
         this.currentLen = len;
         this.currentPos = 0;
+        Objects.checkFromIndexSize(start, len, data.length());
         return next();
     }
 
@@ -573,814 +600,612 @@ public final class JsonParser {
 
         assert lnr != null;
 
-        int currentLexPos = currentLexemaPosition;
-
-        if (currentLexPos < 0) {
-            if (currentLexPos < JSON_STARTED_NOTIFICATION_REQUIRED) {
+        if (currentLexemaPosition < 0) {
+            if (currentLexemaPosition < JSON_STARTED_NOTIFICATION_REQUIRED) {
                 doReset();
             }
             lnr.onJsonStarted();
         }
 
-        int currentLexState = currentLexemaState;
+        int r = 0;
+        if (currentLexemaState < LEXEMA_READY) {
+            r = resumeLexema(lnr);
+        }
+        if (r == 0) {
+            r = parseLexemas(lnr);
+        }
+        return r > 0 && currentPos < currentLen ? next : null;
+    }
 
-        final JsonStringBuilder stringBuilder = this.string;
-
+    // The hot path: reads complete lexemas in a loop. A lexema cut by the end of the data
+    // is finished by resumeLexema(), when the rest of it comes.
+    // Returns the same as resumeLexema().
+    private int parseLexemas(final JsonParserListener lnr) {
         final CharSequence data = currentData;
-        final int start = currentStart;
-        final int len = currentLen;
+        final int base = currentStart;
+        final int end = base + currentLen;
 
-        int pos = currentPos;
+        int p = base + currentPos;
+        int lexPos = currentLexemaPosition;
+        int lexState = currentLexemaState;
+        boolean failed = false;
 
         try {
             _end:
-            while (pos < len) {
-                char c = data.charAt(start + pos);
+            while (p < end) {
+                final char c = data.charAt(p);
+                int r;
 
-                if (currentLexState >= LEXEMA_READY) {
-                    _next_char:
-                    switch (c) {
-                        case 0x09:
-                        case 0x0a:
-                        case 0x0d:
-                        case 0x20:
-                            break;
-                        case '{': {
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_CURLY_BRACKET_LEFT_READY;
-                            final int r = onCurlyBracketLeft(lnr, currentLexPos);
-                            if (r == 0) {
+                switch (c) {
+                    case 0x09:
+                    case 0x0a:
+                    case 0x0d:
+                    case 0x20:
+                        p = skipWhitespaces(data, p + 1, end);
+                        continue;
+                    case '{':
+                        lexPos = p++ - base;
+                        lexState = LEXEMA_CURLY_BRACKET_LEFT_READY;
+                        r = onCurlyBracketLeft(lnr, lexPos);
+                        break;
+                    case '}':
+                        lexPos = p++ - base;
+                        lexState = LEXEMA_CURLY_BRACKET_RIGHT_READY;
+                        r = onCurlyBracketRight(lnr, lexPos);
+                        break;
+                    case '[':
+                        lexPos = p++ - base;
+                        lexState = LEXEMA_BOX_BRACKET_LEFT_READY;
+                        r = onBoxBracketLeft(lnr, lexPos);
+                        break;
+                    case ']':
+                        lexPos = p++ - base;
+                        lexState = LEXEMA_BOX_BRACKET_RIGHT_READY;
+                        r = onBoxBracketRight(lnr, lexPos);
+                        break;
+                    case ',':
+                        lexPos = p++ - base;
+                        lexState = LEXEMA_COMMA_READY;
+                        r = onComma(lexPos);
+                        break;
+                    case ':':
+                        lexPos = p++ - base;
+                        lexState = LEXEMA_COLON_READY;
+                        r = onColon(lexPos);
+                        break;
+                    case 't':
+                        if (lexState > LEXEMA_NUMBER_READY) {
+                            error(ERROR_TRUE_EXPECTED_MESSAGE, p - base);
+                            failed = true;
+                            break _end;
+                        }
+                        lexPos = p - base;
+                        if (end - p > 3) { // try to read the whole 'true' value
+                            if (data.charAt(p + 1) == 'r' && data.charAt(p + 2) == 'u' && data.charAt(p + 3) == 'e') {
+                                p += 4;
+                                lexState = LEXEMA_TRUE_READY;
+                                r = onTrue(lnr, lexPos);
                                 break;
                             }
-                            if (r > 0) {
-                                pos++;
-                                break _end;
-                            }
-                            return null;
+                            error(ERROR_TRUE_EXPECTED_MESSAGE, lexPos);
+                            failed = true;
+                            break _end;
                         }
-                        case '}': {
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_CURLY_BRACKET_RIGHT_READY;
-                            final int r = onCurlyBracketRight(lnr, currentLexPos);
-                            if (r == 0) {
+                        p++;
+                        lexState = LEXEMA_TRUE_STARTED_T;
+                        r = RESUME_LEXEMA_REQUIRED;
+                        break;
+                    case 'f':
+                        if (lexState > LEXEMA_NUMBER_READY) {
+                            error(ERROR_FALSE_EXPECTED_MESSAGE, p - base);
+                            failed = true;
+                            break _end;
+                        }
+                        lexPos = p - base;
+                        if (end - p > 4) { // try to read the whole 'false' value
+                            if (data.charAt(p + 1) == 'a' && data.charAt(p + 2) == 'l'
+                                    && data.charAt(p + 3) == 's' && data.charAt(p + 4) == 'e') {
+                                p += 5;
+                                lexState = LEXEMA_FALSE_READY;
+                                r = onFalse(lnr, lexPos);
                                 break;
                             }
-                            if (r > 0) {
-                                pos++;
-                                break _end;
-                            }
-                            return null;
+                            error(ERROR_FALSE_EXPECTED_MESSAGE, lexPos);
+                            failed = true;
+                            break _end;
                         }
-                        case '[': {
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_BOX_BRACKET_LEFT_READY;
-                            final int r = onBoxBracketLeft(lnr, currentLexPos);
-                            if (r == 0) {
+                        p++;
+                        lexState = LEXEMA_FALSE_STARTED_F;
+                        r = RESUME_LEXEMA_REQUIRED;
+                        break;
+                    case 'n':
+                        if (lexState > LEXEMA_NUMBER_READY) {
+                            error(ERROR_NULL_EXPECTED_MESSAGE, p - base);
+                            failed = true;
+                            break _end;
+                        }
+                        lexPos = p - base;
+                        if (end - p > 3) { // try to read the whole 'null' value
+                            if (data.charAt(p + 1) == 'u' && data.charAt(p + 2) == 'l' && data.charAt(p + 3) == 'l') {
+                                p += 4;
+                                lexState = LEXEMA_NULL_READY;
+                                r = onNull(lnr, lexPos);
                                 break;
                             }
-                            if (r > 0) {
-                                pos++;
-                                break _end;
-                            }
-                            return null;
+                            error(ERROR_NULL_EXPECTED_MESSAGE, lexPos);
+                            failed = true;
+                            break _end;
                         }
-                        case ']': {
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_BOX_BRACKET_RIGHT_READY;
-                            final int r = onBoxBracketRight(lnr, currentLexPos);
-                            if (r == 0) {
-                                break;
-                            }
-                            if (r > 0) {
-                                pos++;
-                                break _end;
-                            }
-                            return null;
-                        }
-                        case ',': {
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_COMMA_READY;
-                            final int r = onComma(currentLexPos);
-                            if (r == 0) {
-                                break;
-                            }
-                            return null;
-                        }
-                        case ':': {
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_COLON_READY;
-                            final int r = onColon(currentLexPos);
-                            if (r == 0) {
-                                break;
-                            }
-                            return null;
-                        }
-                        case 't': {
-                            if (currentLexState > LEXEMA_NUMBER_READY) {
-                                error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                return null;
-                            }
-                            currentLexPos = pos;
-                            if (len - pos > 3) { // try to read the whole 'true' value
-                                if (data.charAt(++pos + start) == 'r'
-                                        && data.charAt(++pos + start) == 'u'
-                                        && data.charAt(++pos + start) == 'e') {
+                        p++;
+                        lexState = LEXEMA_NULL_STARTED_N;
+                        r = RESUME_LEXEMA_REQUIRED;
+                        break;
+                    case '"': {
+                        lexPos = p - base;
+                        final JsonStringBuilder stringBuilder = string;
+                        stringBuilder.start(data, p);
 
-                                    currentLexState = LEXEMA_TRUE_READY;
-                                    final int r = onTrue(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                }
-                                error(ERROR_TRUE_EXPECTED_MESSAGE, currentLexPos);
-                                return null;
-                            }
-                            currentLexState = LEXEMA_TRUE_STARTED_T;
+                        final int plainStart = p + 1;
+                        final int plainEnd = skipPlainChars(data, plainStart, end);
+                        stringBuilder.append(data, plainStart, plainEnd - plainStart);
+                        if (plainEnd == end) { // no more data
+                            p = end;
+                            lexState = LEXEMA_STRING_STARTED;
+                            break _end;
+                        }
+                        if (data.charAt(plainEnd) == '"') { // the most frequent case
+                            p = plainEnd + 1;
+                            lexState = LEXEMA_STRING_READY;
+                            r = onStringReady(lnr, lexPos);
                             break;
                         }
-                        case 'f': {
-                            if (currentLexState > LEXEMA_NUMBER_READY) {
-                                error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                return null;
-                            }
-                            currentLexPos = pos;
-                            if (len - pos > 4) { // try to read the whole 'false' value
-                                if (data.charAt(++pos + start) == 'a'
-                                        && data.charAt(++pos + start) == 'l'
-                                        && data.charAt(++pos + start) == 's'
-                                        && data.charAt(++pos + start) == 'e') {
 
-                                    currentLexState = LEXEMA_FALSE_READY;
-                                    final int r = onFalse(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                }
-                                error(ERROR_FALSE_EXPECTED_MESSAGE, currentLexPos);
-                                return null;
-                            }
-                            currentLexState = LEXEMA_FALSE_STARTED_F;
-                            break;
+                        stringBuilder.appendEscape();
+                        final int stringEnd = scanString(LEXEMA_STRING_STARTED_ESCAPE, data, plainEnd + 1, end);
+                        lexState = currentLexemaState;
+                        if (stringEnd < 0) {
+                            failed = true;
+                            break _end;
                         }
-                        case 'n': {
-                            if (currentLexState > LEXEMA_NUMBER_READY) {
-                                error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                return null;
-                            }
-                            currentLexPos = pos;
-                            if (len - pos > 3) { // try to read the whole 'null' value
-                                if (data.charAt(++pos + start) == 'u'
-                                        && data.charAt(++pos + start) == 'l'
-                                        && data.charAt(++pos + start) == 'l') {
-
-                                    currentLexState = LEXEMA_NULL_READY;
-                                    final int r = onNull(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                }
-                                error(ERROR_NULL_EXPECTED_MESSAGE, currentLexPos);
-                                return null;
-                            }
-                            currentLexState = LEXEMA_NULL_STARTED_N;
-                            break;
+                        p = stringEnd;
+                        if (lexState != LEXEMA_STRING_READY) { // no more data
+                            break _end;
                         }
-                        case '"': {
-                            stringBuilder.start(data, start + pos);
-                            currentLexPos = pos;
-                            if (len - pos > 1) { // try to read available part of the string value
-                                pos++;
-                                final int startStringPos = pos;
-                                while (true) {
-                                    c = data.charAt(start + pos);
-                                    switch (c) {
-                                        case '"':
-                                            stringBuilder.append(data, start + startStringPos, pos - startStringPos);
-                                            currentLexState = LEXEMA_STRING_READY;
-                                            final int r = onStringReady(lnr, currentLexPos);
-                                            if (r == 0) {
-                                                break _next_char;
-                                            }
-                                            if (r > 0) {
-                                                pos++;
-                                                break _end;
-                                            }
-                                            return null;
-                                        case '\\':
-                                            stringBuilder.append(data, startStringPos, pos - startStringPos);
-                                            stringBuilder.appendEscape();
-                                            currentLexState = LEXEMA_STRING_STARTED_ESCAPE;
-                                            break _next_char;
-                                        default:
-                                            break;
-                                    }
-                                    if (++pos == len) {
-                                        stringBuilder.append(data, startStringPos, pos - startStringPos);
-                                        break;
-                                    }
-                                }
-                            }
-                            currentLexState = LEXEMA_STRING_STARTED;
-                            break;
-                        }
-                        case '-': {
-                            number.setMantissa(0);
-                            number.setExp(0);
-                            numberMantissaExp = 0;
-                            numberMinuses = 2;
-                            numberOverflow = false;
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
-                            break;
-                        }
-                        case '+': {
-                            number.setMantissa(0);
-                            number.setExp(0);
-                            numberMantissaExp = 0;
-                            numberMinuses = 0;
-                            numberOverflow = false;
-                            currentLexPos = pos;
-                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_SIGN;
-                            break;
-                        }
-                        case '0':
-                        case '1':
-                        case '2':
-                        case '3':
-                        case '4':
-                        case '5':
-                        case '6':
-                        case '7':
-                        case '8':
-                        case '9': {
-                            number.setMantissa(c - '0');
-                            number.setExp(0);
-                            numberMantissaExp = 0;
-                            numberMinuses = 0;
-                            numberOverflow = false;
-                            currentLexPos = pos;
-                            if (len - pos > 1) { // try to read available part of the number value's mantissa
-                                pos++;
-                                while (true) {
-                                    c = data.charAt(start + pos);
-                                    if (c >= '0' && c <= '9') {
-                                        final long m = number.mantissa();
-                                        if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
-                                            number.setMantissa(m * 10 + (c - '0'));
-                                        } else if (!numberOverflow) {
-                                            numberOverflow = true;
-                                            startOverflownNumber(overflownNumber, m, numberMinuses,
-                                                    false, numberMantissaExp, c);
-                                            numberMantissaExp++;
-                                        } else {
-                                            overflownNumber.append(c);
-                                            numberMantissaExp++;
-                                        }
-                                        if (++pos == len) {
-                                            break;
-                                        }
-                                        continue;
-                                    }
-                                    switch (c) {
-                                        case '.':
-                                            if (numberOverflow) {
-                                                overflownNumber.append('.');
-                                            }
-                                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
-                                            break _next_char;
-                                        case 'e':
-                                        case 'E':
-                                            currentLexState = LEXEMA_NUMBER_STARTED_E;
-                                            break _next_char;
-                                        case 0x09:
-                                        case 0x0a:
-                                        case 0x0d:
-                                        case 0x20:
-                                        case '{':
-                                        case '}':
-                                        case '[':
-                                        case ']':
-                                        case ',':
-                                        case ':':
-                                            pos--;
-                                            currentLexState = LEXEMA_NUMBER_READY;
-                                            final int r = onNumber(lnr, currentLexPos);
-                                            if (r == 0) {
-                                                break _next_char;
-                                            }
-                                            if (r > 0) {
-                                                pos++;
-                                                break _end;
-                                            }
-                                            return null;
-                                        default:
-                                            error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                            return null;
-                                    }
-                                }
-                            }
-                            currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
-                            break;
-                        }
-                        default:
-                            error(ERROR_UNEXPECTED_CHAR_MESSAGE, pos);
-                            return null;
+                        r = onStringReady(lnr, lexPos);
+                        break;
                     }
-                } else {
-                    _next_char:
-                    switch (currentLexState) {
+                    case '-':
+                    case '+':
+                    case '0':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9': {
+                        lexPos = p - base;
+                        number.setMantissa(0);
+                        number.setExp(0);
+                        numberMantissaExp = 0;
+                        numberMinuses = c == '-' ? 2 : 0;
+                        numberOverflow = false;
 
-                        /* string value - the rest */
-                        case LEXEMA_STRING_STARTED: {
-                            final int startStringPos = pos;
-                            while (true) {
-                                switch (c) {
-                                    case '"':
-                                        stringBuilder.append(data, startStringPos, pos - startStringPos);
-                                        currentLexState = LEXEMA_STRING_READY;
-                                        final int r = onStringReady(lnr, currentLexPos);
-                                        if (r == 0) {
-                                            break _next_char;
-                                        }
-                                        if (r > 0) {
-                                            pos++;
-                                            break _end;
-                                        }
-                                        return null;
-                                    case '\\':
-                                        stringBuilder.append(data, startStringPos, pos - startStringPos);
-                                        stringBuilder.appendEscape();
-                                        currentLexState = LEXEMA_STRING_STARTED_ESCAPE;
-                                        break _next_char;
-                                    default:
-                                        break;
-                                }
-                                if (++pos == len) {
-                                    stringBuilder.append(data, startStringPos, pos - startStringPos);
-                                    break;
-                                }
-                                c = data.charAt(start + pos);
-                            }
-                            break;
-                        }
-                        case LEXEMA_STRING_STARTED_ESCAPE: {
-                            switch (c) {
-                                case '"':
-                                    stringBuilder.appendEscapedQuotationMark();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case '\\':
-                                    stringBuilder.appendEscapedReverseSolidus();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case '/':
-                                    stringBuilder.appendEscapedSolidus();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case 'b':
-                                    stringBuilder.appendEscapedBackspace();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case 'f':
-                                    stringBuilder.appendEscapedFormfeed();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case 'n':
-                                    stringBuilder.appendEscapedNewLine();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case 'r':
-                                    stringBuilder.appendEscapedCarriageReturn();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case 't':
-                                    stringBuilder.appendEscapedHorisontalTab();
-                                    currentLexState = LEXEMA_STRING_STARTED;
-                                    break _next_char;
-                                case 'u':
-                                    stringBuilder.appendEscapedUnicodeU();
-                                    currentLexState = LEXEMA_STRING_STARTED_ESCAPE_UNICODE;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_INCORRECT_ESCAPING_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_STRING_STARTED_ESCAPE_UNICODE: {
-                            if (stringBuilder.appendEscapedUnicodeChar1(c)) {
-                                currentLexState = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_1;
+                        final int numberEnd;
+                        if (c < '0') {
+                            numberEnd = scanNumber(LEXEMA_NUMBER_STARTED_MANTISSA_SIGN, data, p + 1, end);
+                        } else {
+                            final int digitsEnd = scanDigits(data, p, end);
+                            // the most frequent case
+                            if (digitsEnd < end && isNumberDelimiter(data.charAt(digitsEnd))) {
+                                p = digitsEnd;
+                                lexState = LEXEMA_NUMBER_READY;
+                                r = onNumber(lnr, lexPos);
                                 break;
-                            } else {
-                                error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return null;
                             }
+                            numberEnd = scanNumber(LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART, data, digitsEnd, end);
                         }
-                        case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_1: {
-                            if (stringBuilder.appendEscapedUnicodeChar2(c)) {
-                                currentLexState = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_2;
-                                break;
-                            } else {
-                                error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return null;
-                            }
+                        lexState = currentLexemaState;
+                        if (numberEnd < 0) {
+                            failed = true;
+                            break _end;
                         }
-                        case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_2: {
-                            if (stringBuilder.appendEscapedUnicodeChar3(c)) {
-                                currentLexState = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3;
-                                break;
-                            } else {
-                                error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return null;
-                            }
+                        p = numberEnd;
+                        if (lexState != LEXEMA_NUMBER_READY) { // no more data
+                            break _end;
                         }
-                        case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3: {
-                            if (stringBuilder.appendEscapedUnicodeChar4(c)) {
-                                currentLexState = LEXEMA_STRING_STARTED;
-                                break;
-                            } else {
-                                error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, pos);
-                                return null;
-                            }
-                        }
-
-                        /* number value - the rest */
-                        case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
-                            while (true) {
-                                if (c >= '0' && c <= '9') {
-                                    final long m = number.mantissa();
-                                    if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
-                                        number.setMantissa(m * 10 + (c - '0'));
-                                    } else if (!numberOverflow) {
-                                        numberOverflow = true;
-                                        startOverflownNumber(overflownNumber, m, numberMinuses,
-                                                false, numberMantissaExp, c);
-                                        numberMantissaExp++;
-                                    } else {
-                                        overflownNumber.append(c);
-                                        numberMantissaExp++;
-                                    }
-                                    if (++pos == len) {
-                                        break _end;
-                                    }
-                                    c = data.charAt(start + pos);
-                                    continue;
-                                }
-                                switch (c) {
-                                    case '.':
-                                        if (numberOverflow) {
-                                            overflownNumber.append('.');
-                                        }
-                                        currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
-                                        break _next_char;
-                                    case 'e':
-                                    case 'E':
-                                        currentLexState = LEXEMA_NUMBER_STARTED_E;
-                                        break _next_char;
-                                    case 0x09:
-                                    case 0x0a:
-                                    case 0x0d:
-                                    case 0x20:
-                                    case '{':
-                                    case '}':
-                                    case '[':
-                                    case ']':
-                                    case ',':
-                                    case ':':
-                                        pos--;
-                                        currentLexState = LEXEMA_NUMBER_READY;
-                                        final int r = onNumber(lnr, currentLexPos);
-                                        if (r == 0) {
-                                            break _next_char;
-                                        }
-                                        if (r > 0) {
-                                            pos++;
-                                            break _end;
-                                        }
-                                        return null;
-                                    default:
-                                        error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                        return null;
-                                }
-                            }
-                        }
-                        case LEXEMA_NUMBER_STARTED_MANTISSA_SIGN: {
-                            switch (c) {
-                                case '0':
-                                case '1':
-                                case '2':
-                                case '3':
-                                case '4':
-                                case '5':
-                                case '6':
-                                case '7':
-                                case '8':
-                                case '9':
-                                    number.setMantissa(c - '0');
-                                    currentLexState = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
-                            while (true) {
-                                if (c >= '0' && c <= '9') {
-                                    final long m = number.mantissa();
-                                    if (!numberOverflow && m <= MAX_MANTISSA_BASE) {
-                                        number.setMantissa(m * 10 + (c - '0'));
-                                        numberMantissaExp--;
-                                    } else if (!numberOverflow) {
-                                        numberOverflow = true;
-                                        startOverflownNumber(overflownNumber, m, numberMinuses,
-                                                true, numberMantissaExp, c);
-                                    } else {
-                                        overflownNumber.append(c);
-                                    }
-                                    if (++pos == len) {
-                                        break _end;
-                                    }
-                                    c = data.charAt(start + pos);
-                                    continue;
-                                }
-                                switch (c) {
-                                    case 'e':
-                                    case 'E':
-                                        currentLexState = LEXEMA_NUMBER_STARTED_E;
-                                        break _next_char;
-                                    case 0x09:
-                                    case 0x0a:
-                                    case 0x0d:
-                                    case 0x20:
-                                    case '{':
-                                    case '}':
-                                    case '[':
-                                    case ']':
-                                    case ',':
-                                    case ':':
-                                        pos--;
-                                        currentLexState = LEXEMA_NUMBER_READY;
-                                        final int r = onNumber(lnr, currentLexPos);
-                                        if (r == 0) {
-                                            break _next_char;
-                                        }
-                                        if (r > 0) {
-                                            pos++;
-                                            break _end;
-                                        }
-                                        return null;
-                                    default:
-                                        error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                        return null;
-                                }
-                            }
-                        }
-                        case LEXEMA_NUMBER_STARTED_E: {
-                            switch (c) {
-                                case '+':
-                                    currentLexState = LEXEMA_NUMBER_STARTED_E_SIGN;
-                                    break _next_char;
-                                case '-':
-                                    numberMinuses = numberMinuses | 1;
-                                    currentLexState = LEXEMA_NUMBER_STARTED_E_SIGN;
-                                    break _next_char;
-                                case '0':
-                                case '1':
-                                case '2':
-                                case '3':
-                                case '4':
-                                case '5':
-                                case '6':
-                                case '7':
-                                case '8':
-                                case '9':
-                                    number.setExp(number.exp() * 10 + (c - '0'));
-                                    currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_NUMBER_STARTED_E_SIGN: {
-                            switch (c) {
-                                case '0':
-                                case '1':
-                                case '2':
-                                case '3':
-                                case '4':
-                                case '5':
-                                case '6':
-                                case '7':
-                                case '8':
-                                case '9':
-                                    number.setExp(number.exp() * 10 + (c - '0'));
-                                    currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_NUMBER_STARTED_E_VALUE: {
-                            switch (c) {
-                                case '0':
-                                case '1':
-                                case '2':
-                                case '3':
-                                case '4':
-                                case '5':
-                                case '6':
-                                case '7':
-                                case '8':
-                                case '9':
-                                    number.setExp(number.exp() * 10 + (c - '0'));
-                                    currentLexState = LEXEMA_NUMBER_STARTED_E_VALUE;
-                                    break _next_char;
-                                case 0x09:
-                                case 0x0a:
-                                case 0x0d:
-                                case 0x20:
-                                case '{':
-                                case '}':
-                                case '[':
-                                case ']':
-                                case ',':
-                                case ':':
-                                    pos--;
-                                    currentLexState = LEXEMA_NUMBER_READY;
-                                    final int r = onNumber(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                default:
-                                    error(ERROR_INCORRECT_NUMBER_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-
-                        /* 'true' value - the rest */
-                        case LEXEMA_TRUE_STARTED_T: {
-                            switch (c) {
-                                case 'r':
-                                    currentLexState = LEXEMA_TRUE_STARTED_TR;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_TRUE_STARTED_TR: {
-                            switch (c) {
-                                case 'u':
-                                    currentLexState = LEXEMA_TRUE_STARTED_TRU;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_TRUE_STARTED_TRU: {
-                            switch (c) {
-                                case 'e':
-                                    currentLexState = LEXEMA_TRUE_READY;
-                                    final int r = onTrue(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                default:
-                                    error(ERROR_TRUE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-
-                        /* 'false' value - the rest */
-                        case LEXEMA_FALSE_STARTED_F: {
-                            switch (c) {
-                                case 'a':
-                                    currentLexState = LEXEMA_FALSE_STARTED_FA;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_FALSE_STARTED_FA: {
-                            switch (c) {
-                                case 'l':
-                                    currentLexState = LEXEMA_FALSE_STARTED_FAL;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_FALSE_STARTED_FAL: {
-                            switch (c) {
-                                case 's':
-                                    currentLexState = LEXEMA_FALSE_STARTED_FALS;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_FALSE_STARTED_FALS: {
-                            switch (c) {
-                                case 'e':
-                                    currentLexState = LEXEMA_FALSE_READY;
-                                    final int r = onFalse(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                default:
-                                    error(ERROR_FALSE_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-
-                        /* 'null' value - the rest */
-                        case LEXEMA_NULL_STARTED_N: {
-                            switch (c) {
-                                case 'u':
-                                    currentLexState = LEXEMA_NULL_STARTED_NU;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_NULL_STARTED_NU: {
-                            switch (c) {
-                                case 'l':
-                                    currentLexState = LEXEMA_NULL_STARTED_NUL;
-                                    break _next_char;
-                                default:
-                                    error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        case LEXEMA_NULL_STARTED_NUL: {
-                            switch (c) {
-                                case 'l':
-                                    currentLexState = LEXEMA_NULL_READY;
-                                    final int r = onNull(lnr, currentLexPos);
-                                    if (r == 0) {
-                                        break _next_char;
-                                    }
-                                    if (r > 0) {
-                                        pos++;
-                                        break _end;
-                                    }
-                                    return null;
-                                default:
-                                    error(ERROR_NULL_EXPECTED_MESSAGE, pos);
-                                    return null;
-                            }
-                        }
-                        /* unknown state */
-                        default:
-                            error(ERROR_INTERNAL_UNEXPECTED_LEXEMA_ERROR_MESSAGE, pos);
-                            return null;
+                        r = onNumber(lnr, lexPos);
+                        break;
                     }
+                    default:
+                        error(ERROR_UNEXPECTED_CHAR_MESSAGE, p - base);
+                        failed = true;
+                        break _end;
                 }
-                pos++;
+
+                if (r == RESUME_LEXEMA_REQUIRED) {
+                    currentPos = p - base;
+                    currentLexemaState = lexState;
+                    currentLexemaPosition = lexPos;
+                    r = resumeLexema(lnr);
+                    p = base + currentPos;
+                    lexState = currentLexemaState;
+                }
+                if (r != 0) {
+                    return r;
+                }
             }
-            return pos < len ? next : null;
+            return failed ? -1 : 0;
         } finally {
-            currentPos = pos;
-            currentLexemaState = currentLexState;
-            currentLexemaPosition = currentLexPos;
+            currentPos = p - base;
+            currentLexemaState = lexState;
+            currentLexemaPosition = lexPos;
+        }
+    }
+
+    // Continues the lexema which has been cut by the end of the previous part of the data.
+    // Returns the same as the on...() methods: 0 to go on (the lexema is either finished or the data
+    // is over again), a positive value if the listener has stopped the parsing, a negative one
+    // in the case of an error.
+    private int resumeLexema(final JsonParserListener lnr) {
+        final CharSequence data = currentData;
+        final int base = currentStart;
+        final int end = base + currentLen;
+        final int state = currentLexemaState;
+
+        if (state >= LEXEMA_STRING_STARTED && state <= LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3) {
+            final int stringEnd = scanString(state, data, base + currentPos, end);
+            if (stringEnd < 0) {
+                return -1;
+            }
+            currentPos = stringEnd - base;
+            return currentLexemaState == LEXEMA_STRING_READY ? onStringReady(lnr, currentLexemaPosition) : 0;
+        }
+        if (state >= LEXEMA_NUMBER_STARTED_MANTISSA_SIGN && state <= LEXEMA_NUMBER_STARTED_E_VALUE) {
+            final int numberEnd = scanNumber(state, data, base + currentPos, end);
+            if (numberEnd < 0) {
+                return -1;
+            }
+            currentPos = numberEnd - base;
+            return currentLexemaState == LEXEMA_NUMBER_READY ? onNumber(lnr, currentLexemaPosition) : 0;
+        }
+        return resumeLiteral(lnr, data, base + currentPos, end);
+    }
+
+    private int resumeLiteral(final JsonParserListener lnr, final CharSequence data, final int from, final int end) {
+        int state = currentLexemaState;
+
+        for (int p = from; p < end; p++) {
+            if (data.charAt(p) != LITERAL_EXPECTED_CHARS[state]) {
+                currentPos = p - currentStart;
+                currentLexemaState = state;
+                error(state < LEXEMA_FALSE_STARTED_F ? ERROR_TRUE_EXPECTED_MESSAGE
+                        : state < LEXEMA_NULL_STARTED_N ? ERROR_FALSE_EXPECTED_MESSAGE
+                        : ERROR_NULL_EXPECTED_MESSAGE, p - currentStart);
+                return -1;
+            }
+            switch (state) {
+                case LEXEMA_TRUE_STARTED_TRU:
+                    currentPos = p + 1 - currentStart;
+                    currentLexemaState = LEXEMA_TRUE_READY;
+                    return onTrue(lnr, currentLexemaPosition);
+                case LEXEMA_FALSE_STARTED_FALS:
+                    currentPos = p + 1 - currentStart;
+                    currentLexemaState = LEXEMA_FALSE_READY;
+                    return onFalse(lnr, currentLexemaPosition);
+                case LEXEMA_NULL_STARTED_NUL:
+                    currentPos = p + 1 - currentStart;
+                    currentLexemaState = LEXEMA_NULL_READY;
+                    return onNull(lnr, currentLexemaPosition);
+                default:
+                    state++;
+                    break;
+            }
+        }
+        currentPos = end - currentStart;
+        currentLexemaState = state;
+        return 0;
+    }
+
+    // Reads a string value from the given state up to the closing quote or the end of the data.
+    // The state the reading has finished with is stored to currentLexemaState.
+    // Returns the index of the char next to the last one read, or -1 in the case of an error.
+    private int scanString(final int fromState, final CharSequence data, final int from, final int end) {
+        final JsonStringBuilder stringBuilder = string;
+
+        int state = fromState;
+        int p = from;
+
+        while (p < end) {
+            if (state == LEXEMA_STRING_STARTED) {
+                final int plainStart = p;
+                p = skipPlainChars(data, p, end);
+                stringBuilder.append(data, plainStart, p - plainStart);
+                if (p == end) {
+                    break;
+                }
+                if (data.charAt(p++) == '"') {
+                    state = LEXEMA_STRING_READY;
+                    break;
+                }
+                stringBuilder.appendEscape();
+                state = LEXEMA_STRING_STARTED_ESCAPE;
+                continue;
+            }
+
+            final char c = data.charAt(p);
+
+            switch (state) {
+                case LEXEMA_STRING_STARTED_ESCAPE: {
+                    state = LEXEMA_STRING_STARTED;
+                    switch (c) {
+                        case '"':
+                            stringBuilder.appendEscapedQuotationMark();
+                            break;
+                        case '\\':
+                            stringBuilder.appendEscapedReverseSolidus();
+                            break;
+                        case '/':
+                            stringBuilder.appendEscapedSolidus();
+                            break;
+                        case 'b':
+                            stringBuilder.appendEscapedBackspace();
+                            break;
+                        case 'f':
+                            stringBuilder.appendEscapedFormfeed();
+                            break;
+                        case 'n':
+                            stringBuilder.appendEscapedNewLine();
+                            break;
+                        case 'r':
+                            stringBuilder.appendEscapedCarriageReturn();
+                            break;
+                        case 't':
+                            stringBuilder.appendEscapedHorisontalTab();
+                            break;
+                        case 'u':
+                            stringBuilder.appendEscapedUnicodeU();
+                            state = LEXEMA_STRING_STARTED_ESCAPE_UNICODE;
+                            break;
+                        default:
+                            currentLexemaState = LEXEMA_STRING_STARTED_ESCAPE;
+                            error(ERROR_INCORRECT_ESCAPING_MESSAGE, p - currentStart);
+                            return -1;
+                    }
+                    break;
+                }
+                case LEXEMA_STRING_STARTED_ESCAPE_UNICODE: {
+                    if (stringBuilder.appendEscapedUnicodeChar1(c)) {
+                        state = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_1;
+                        break;
+                    }
+                    return onIncorrectUnicodeEscaping(state, p);
+                }
+                case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_1: {
+                    if (stringBuilder.appendEscapedUnicodeChar2(c)) {
+                        state = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_2;
+                        break;
+                    }
+                    return onIncorrectUnicodeEscaping(state, p);
+                }
+                case LEXEMA_STRING_STARTED_ESCAPE_UNICODE_2: {
+                    if (stringBuilder.appendEscapedUnicodeChar3(c)) {
+                        state = LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3;
+                        break;
+                    }
+                    return onIncorrectUnicodeEscaping(state, p);
+                }
+                default: { // LEXEMA_STRING_STARTED_ESCAPE_UNICODE_3
+                    if (stringBuilder.appendEscapedUnicodeChar4(c)) {
+                        state = LEXEMA_STRING_STARTED;
+                        break;
+                    }
+                    return onIncorrectUnicodeEscaping(state, p);
+                }
+            }
+            p++;
+        }
+
+        currentLexemaState = state;
+        return p;
+    }
+
+    private int onIncorrectUnicodeEscaping(final int state, final int p) {
+        currentLexemaState = state;
+        error(ERROR_MESSAGE_INCORRECT_UNICODE_ESCAPING, p - currentStart);
+        return -1;
+    }
+
+    private static int skipWhitespaces(final CharSequence data, final int from, final int end) {
+        int p = from;
+        while (p < end) {
+            final char c = data.charAt(p);
+            if (c != 0x20 && c != 0x0a && c != 0x0d && c != 0x09) {
+                break;
+            }
+            p++;
+        }
+        return p;
+    }
+
+    private static int skipPlainChars(final CharSequence data, final int from, final int end) {
+        int p = from;
+        while (p < end) {
+            final char c = data.charAt(p);
+            if (c == '"' || c == '\\') {
+                break;
+            }
+            p++;
+        }
+        return p;
+    }
+
+    // Reads as many digits of a number, which can't overflow the mantissa, as there are in a row.
+    // The result is left in the number, so scanNumber() can continue from the index returned.
+    private int scanDigits(final CharSequence data, final int from, final int end) {
+        final int limit = Math.min(end, from + MAX_SAFE_DIGITS);
+        long mantissa = 0;
+        int p = from;
+        while (p < limit) {
+            final int digit = data.charAt(p) - '0';
+            if (digit < 0 || digit > 9) {
+                break;
+            }
+            mantissa = mantissa * 10 + digit;
+            p++;
+        }
+        number.setMantissa(mantissa);
+        return p;
+    }
+
+    private static boolean isNumberDelimiter(final char c) {
+        return c < NUMBER_DELIMITERS.length && NUMBER_DELIMITERS[c];
+    }
+
+    // Reads a number value from the given state up to the delimiter next to the number or the end
+    // of the data. The state the reading has finished with is stored to currentLexemaState.
+    // Returns the index of the first char which hasn't been read, or -1 in the case of an error.
+    private int scanNumber(final int fromState, final CharSequence data, final int from, final int end) {
+        long mantissa = number.mantissa();
+        int mantissaExp = numberMantissaExp;
+        int exp = number.exp();
+
+        int state = fromState;
+        int p = from;
+        boolean failed = false;
+
+        _end:
+        while (p < end) {
+            char c = data.charAt(p);
+
+            switch (state) {
+                case LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART: {
+                    int digit = c - '0';
+                    while (digit >= 0 && digit <= 9) {
+                        if (mantissa <= MAX_MANTISSA_BASE) {
+                            mantissa = mantissa * 10 + digit;
+                        } else {
+                            onMantissaOverflown(mantissa, false, mantissaExp, c);
+                            mantissaExp++;
+                        }
+                        if (++p == end) {
+                            break _end;
+                        }
+                        c = data.charAt(p);
+                        digit = c - '0';
+                    }
+                    if (c == '.') {
+                        if (numberOverflow) {
+                            overflownNumber.append('.');
+                        }
+                        state = LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART;
+                        p++;
+                        continue;
+                    }
+                    if (c == 'e' || c == 'E') {
+                        state = LEXEMA_NUMBER_STARTED_E;
+                        p++;
+                        continue;
+                    }
+                    break;
+                }
+                case LEXEMA_NUMBER_STARTED_MANTISSA_FRACTIONAL_PART: {
+                    int digit = c - '0';
+                    while (digit >= 0 && digit <= 9) {
+                        if (mantissa <= MAX_MANTISSA_BASE) {
+                            mantissa = mantissa * 10 + digit;
+                            mantissaExp--;
+                        } else {
+                            onMantissaOverflown(mantissa, true, mantissaExp, c);
+                        }
+                        if (++p == end) {
+                            break _end;
+                        }
+                        c = data.charAt(p);
+                        digit = c - '0';
+                    }
+                    if (c == 'e' || c == 'E') {
+                        state = LEXEMA_NUMBER_STARTED_E;
+                        p++;
+                        continue;
+                    }
+                    break;
+                }
+                case LEXEMA_NUMBER_STARTED_MANTISSA_SIGN: {
+                    final int digit = c - '0';
+                    if (digit >= 0 && digit <= 9) {
+                        mantissa = digit;
+                        state = LEXEMA_NUMBER_STARTED_MANTISSA_INTEGER_PART;
+                        p++;
+                        continue;
+                    }
+                    failed = true;
+                    break _end;
+                }
+                case LEXEMA_NUMBER_STARTED_E:
+                case LEXEMA_NUMBER_STARTED_E_SIGN: {
+                    if (state == LEXEMA_NUMBER_STARTED_E && (c == '+' || c == '-')) {
+                        if (c == '-') {
+                            numberMinuses = numberMinuses | 1;
+                        }
+                        state = LEXEMA_NUMBER_STARTED_E_SIGN;
+                        p++;
+                        continue;
+                    }
+                    final int digit = c - '0';
+                    if (digit >= 0 && digit <= 9) {
+                        exp = exp * 10 + digit;
+                        state = LEXEMA_NUMBER_STARTED_E_VALUE;
+                        p++;
+                        continue;
+                    }
+                    failed = true;
+                    break _end;
+                }
+                default: { // LEXEMA_NUMBER_STARTED_E_VALUE
+                    final int digit = c - '0';
+                    if (digit >= 0 && digit <= 9) {
+                        exp = exp * 10 + digit;
+                        p++;
+                        continue;
+                    }
+                    break;
+                }
+            }
+
+            // the char isn't a part of the number
+            if (isNumberDelimiter(c)) {
+                state = LEXEMA_NUMBER_READY;
+            } else {
+                failed = true;
+            }
+            break;
+        }
+
+        number.setMantissa(mantissa);
+        number.setExp(exp);
+        numberMantissaExp = mantissaExp;
+        currentLexemaState = state;
+
+        if (failed) {
+            error(ERROR_INCORRECT_NUMBER_MESSAGE, p - currentStart);
+            return -1;
+        }
+        return p;
+    }
+
+    private void onMantissaOverflown(
+            final long mantissa,
+            final boolean fractionalPart,
+            final int mantissaExp,
+            final char digit) {
+        if (numberOverflow) {
+            overflownNumber.append(digit);
+        } else {
+            numberOverflow = true;
+            startOverflownNumber(overflownNumber, mantissa, numberMinuses, fractionalPart, mantissaExp, digit);
         }
     }
 

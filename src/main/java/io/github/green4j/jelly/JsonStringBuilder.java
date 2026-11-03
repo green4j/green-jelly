@@ -38,8 +38,9 @@ package io.github.green4j.jelly;
  * {@link CopyingStringBuilder} can be used.
  * 3. If you need to have the JSON values be unescaped, a copying builder should
  * be used instead of a flyweight one, since the length of the result string may
- * be different, less than original string's length. To unescape JSON values you
- * can use {@link CopyingStringBuilder#CopyingStringBuilder(boolean)} with true passed (default value).
+ * be different, less than original string's length. {@link CopyingStringBuilder} unescapes JSON values
+ * by default. To keep them as they are, use {@link CopyingStringBuilder#CopyingStringBuilder(boolean)}
+ * with true passed.
  * @see FlyweightStringBuilder
  * @see CopyingStringBuilder
  */

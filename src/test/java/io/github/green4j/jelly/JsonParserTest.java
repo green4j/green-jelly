@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonParserTest {
@@ -1013,6 +1014,200 @@ public class JsonParserTest {
         expectedEvents.onJsonEnded();
 
         assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testEscapedStringInTheGivenBounds() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        final String json = "{\"a\\nb\":\"c\\td\"}";
+        parser.parse("123" + json + "xyz", 3, json.length());
+        parser.eoj();
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("a\nb");
+        expectedEvents.onStringValue("c\td");
+        expectedEvents.onObjectEnded();
+        expectedEvents.onJsonEnded();
+
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testStringCutInTheGivenBounds() {
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        parser.parse("xx\"abyy", 2, 3);
+        parser.parse("xxcd\\", 2, 3);
+        parser.parse("xxnef\"yy", 2, 4);
+        parser.eoj();
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onStringValue("abcd\nef");
+        expectedEvents.onJsonEnded();
+
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testAnyCutOfDataGivesTheSameEvents() {
+        final String json = "{\"name\":\"va\\\"l\\u0041ue\", \"t\":true,\"f\":false,\"n\":null,\n"
+                + "\"numbers\":[0,-12,+3.25,4e2,5.5E-3,-0.0,99999999999999999999.5e1],"
+                + "\"nested\":[{\"a\":[]},{}],\"s\":\"\"}\t";
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(expectedEvents);
+        parser.parse(json);
+        parser.eoj();
+
+        final JsonEvents events = new JsonEvents();
+        parser.setListener(events);
+        for (int cut = 1; cut <= json.length(); cut++) {
+            events.clear();
+            parser.parse(json, 0, cut);
+            parser.parse(json, cut, json.length() - cut);
+            parser.eoj();
+            assertEquals(expectedEvents, events, "Cut at " + cut);
+        }
+    }
+
+    @Test
+    public void testAnyKindOfCharSequence() {
+        final String json = "{\"name\":\"value\\n\",\"number\":-12.5}";
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onObjectStarted();
+        expectedEvents.onObjectMember("name");
+        expectedEvents.onStringValue("value\n");
+        expectedEvents.onObjectMember("number");
+        expectedEvents.onNumberValue(-125, -1, false);
+        expectedEvents.onObjectEnded();
+        expectedEvents.onJsonEnded();
+
+        final char[] chars = ("**" + json + "**").toCharArray();
+
+        final CharSequence[] inputs = new CharSequence[] {
+                json,
+                new StringBuilder(json),
+                new StringBuffer(json),
+                new CharArrayCharSequence(json.toCharArray(), json.length()),
+                new CharArrayWithStart(chars, 2, json.length())
+        };
+
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+        for (final CharSequence input : inputs) {
+            events.clear();
+            parser.parse(input);
+            parser.eoj();
+            assertEquals(expectedEvents, events, input.getClass().getName());
+        }
+    }
+
+    @Test
+    public void testPartOfCharArray() {
+        final char[] chars = "**[1,\"ab\",3]**".toCharArray();
+        final CharArrayWithStart input = new CharArrayWithStart(chars, 2, 10);
+
+        final FlyweightStringBuilder flyweight = new FlyweightStringBuilder();
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(flyweight).setListener(events);
+
+        parser.parse(input, 3, 4); // "ab"
+        parser.eoj();
+
+        assertEquals(input, flyweight.buffer());
+        assertEquals(4, flyweight.start());
+        assertEquals("ab", flyweight.toString());
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onStringValue("ab");
+        expectedEvents.onJsonEnded();
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testLongString() {
+        final StringBuilder json = new StringBuilder("[");
+        final StringBuilder value = new StringBuilder();
+        for (int i = 0; i < 100_000; i++) {
+            value.append((char) ('a' + i % 26));
+        }
+        json.append('"').append(value).append("\"]");
+
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser(new CopyingStringBuilder()).setListener(events);
+
+        parser.parse(json);
+        parser.eoj();
+
+        final JsonEvents expectedEvents = new JsonEvents();
+        expectedEvents.onJsonStarted();
+        expectedEvents.onArrayStarted();
+        expectedEvents.onStringValue(value);
+        expectedEvents.onArrayEnded();
+        expectedEvents.onJsonEnded();
+        assertEquals(expectedEvents, events);
+    }
+
+    @Test
+    public void testCopyingStringBuilderAsCharSequence() {
+        final CopyingStringBuilder builder = new CopyingStringBuilder();
+        builder.start("", 0);
+        builder.append(new StringBuffer("0123456789"), 2, 5);
+        builder.appendEscapedNewLine();
+
+        assertEquals(6, builder.length());
+        assertEquals('2', builder.charAt(0));
+        assertEquals('\n', builder.charAt(5));
+        assertEquals("23456\n", builder.toString());
+        assertEquals("34", builder.subSequence(1, 3).toString());
+        assertThrows(IndexOutOfBoundsException.class, () -> builder.charAt(6));
+        assertThrows(IndexOutOfBoundsException.class, () -> builder.subSequence(1, 7));
+    }
+
+    private static final class CharArrayWithStart implements CharSequence, CharArray {
+        private final char[] chars;
+        private final int start;
+        private final int length;
+
+        CharArrayWithStart(final char[] chars, final int start, final int length) {
+            this.chars = chars;
+            this.start = start;
+            this.length = length;
+        }
+
+        @Override
+        public char[] array() {
+            return chars;
+        }
+
+        @Override
+        public int start() {
+            return start;
+        }
+
+        @Override
+        public int length() {
+            return length;
+        }
+
+        @Override
+        public char charAt(final int index) {
+            return chars[start + index];
+        }
+
+        @Override
+        public CharSequence subSequence(final int from, final int to) {
+            return new String(chars, start + from, to - from);
+        }
     }
 
     class MutableLong {
