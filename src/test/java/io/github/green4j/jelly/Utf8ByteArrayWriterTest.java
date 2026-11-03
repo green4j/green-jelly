@@ -23,6 +23,9 @@
  */
 package io.github.green4j.jelly;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -181,5 +184,39 @@ class Utf8ByteArrayWriterTest {
         final Utf8ByteArrayWriter fromChars = new Utf8ByteArrayWriter(2);
         fromChars.append("xab\u0436cdx".toCharArray(), 1, 5);
         assertEquals(expected, fromChars.toString());
+    }
+
+    @Test
+    void testSurrogatePairs() {
+        final String value = "a\ud83d\ude00b\ud800\udc00\udbff\udfff";
+        final byte[] expected = value.getBytes(StandardCharsets.UTF_8);
+
+        final Utf8ByteArrayWriter fromString = new Utf8ByteArrayWriter(2);
+        fromString.append("x" + value + "x", 1, value.length());
+        assertArrayEquals(expected, bytes(fromString));
+
+        final Utf8ByteArrayWriter fromCharSequence = new Utf8ByteArrayWriter(2);
+        fromCharSequence.append(new StringBuilder(value));
+        assertArrayEquals(expected, bytes(fromCharSequence));
+
+        final Utf8ByteArrayWriter fromChars = new Utf8ByteArrayWriter(2);
+        fromChars.append(("x" + value + "x").toCharArray(), 1, value.length());
+        assertArrayEquals(expected, bytes(fromChars));
+    }
+
+    @Test
+    void testUnpairedSurrogates() {
+        final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(2);
+        writer.append("\uD83Da\uDE00\uD83D");
+        assertArrayEquals(new byte[] {
+                (byte) 0xed, (byte) 0xa0, (byte) 0xbd,
+                'a',
+                (byte) 0xed, (byte) 0xb8, (byte) 0x80,
+                (byte) 0xed, (byte) 0xa0, (byte) 0xbd
+        }, bytes(writer));
+    }
+
+    private static byte[] bytes(final Utf8ByteArrayWriter writer) {
+        return Arrays.copyOfRange(writer.array(), writer.start(), writer.start() + writer.length());
     }
 }

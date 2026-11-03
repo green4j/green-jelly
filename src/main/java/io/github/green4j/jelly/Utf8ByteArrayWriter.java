@@ -145,15 +145,24 @@ public class Utf8ByteArrayWriter implements ClearableByteArrayBufferingWriter {
             return;
         }
 
-        if (c <= 0xffff) {
-            length += 3;
-            array[charIndex++] = (byte) (0xe0 | ((c >> 12)));
-            array[charIndex++] = (byte) (0x80 | ((c >> 6) & 0x3f));
-            array[charIndex] = (byte) (0x80 | (c & 0x3f));
-            return;
-        }
+        // a single char of a surrogate pair is written as is, 3 bytes;
+        // a pair passed as a whole by the append() of a sequence of chars is written as one code point, 4 bytes
+        length += 3;
+        array[charIndex++] = (byte) (0xe0 | ((c >> 12)));
+        array[charIndex++] = (byte) (0x80 | ((c >> 6) & 0x3f));
+        array[charIndex] = (byte) (0x80 | (c & 0x3f));
+    }
 
-        throw new IllegalArgumentException("Char with the code " + c + " exceeds BMP range. Use a surrogate pair");
+    private void appendSurrogatePair(final char high, final char low) {
+        makeSureRoomSize(4);
+
+        final int codePoint = Character.toCodePoint(high, low);
+        int charIndex = start + length;
+        length += 4;
+        array[charIndex++] = (byte) (0xf0 | (codePoint >> 18));
+        array[charIndex++] = (byte) (0x80 | ((codePoint >> 12) & 0x3f));
+        array[charIndex++] = (byte) (0x80 | ((codePoint >> 6) & 0x3f));
+        array[charIndex] = (byte) (0x80 | (codePoint & 0x3f));
     }
 
     @Override
@@ -171,7 +180,16 @@ public class Utf8ByteArrayWriter implements ClearableByteArrayBufferingWriter {
                 ? appendPlain((String) data, start, len)
                 : appendPlain(data, start, len);
         for (int i = plain; i < len; i++) {
-            append(data.charAt(start + i));
+            final char c = data.charAt(start + i);
+            if (Character.isHighSurrogate(c) && i + 1 < len) {
+                final char low = data.charAt(start + i + 1);
+                if (Character.isLowSurrogate(low)) {
+                    appendSurrogatePair(c, low);
+                    i++;
+                    continue;
+                }
+            }
+            append(c);
         }
     }
 
@@ -191,7 +209,16 @@ public class Utf8ByteArrayWriter implements ClearableByteArrayBufferingWriter {
         }
         length += plain;
         for (int i = plain; i < len; i++) {
-            append(data[start + i]);
+            final char c = data[start + i];
+            if (Character.isHighSurrogate(c) && i + 1 < len) {
+                final char low = data[start + i + 1];
+                if (Character.isLowSurrogate(low)) {
+                    appendSurrogatePair(c, low);
+                    i++;
+                    continue;
+                }
+            }
+            append(c);
         }
     }
 
