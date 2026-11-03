@@ -62,7 +62,6 @@ public class Utf8JsonParserTest {
         "[fals]",
         "[\"\\x\"]",
         "[\"\\u12G4\"]",
-        "[1.]",
         "[-]",
         "[1e]",
         "{]",
@@ -73,7 +72,16 @@ public class Utf8JsonParserTest {
         "[\"abc",
         "[\"ж\" x]",
         "{\"ключ\":}",
-        "[1]]"
+        "[1]]",
+        "{\"a\":1,}",
+        "{\"ключ\":[1,]}",
+        "1 2",
+        "[1] 2",
+        "{} 1",
+        "\"ж\" 1",
+        "[1] -",
+        "[1] tr",
+        "[1] \"ab"
     };
 
     private static final byte[][] VALID_CHARS = {
@@ -190,9 +198,7 @@ public class Utf8JsonParserTest {
         for (final String json : INVALID) {
             expectedParser.parse(json);
             expectedParser.eoj();
-            if (!expectedParser.hasError()) {
-                continue;
-            }
+            assertTrue(expectedParser.hasError(), json);
             // the positions are of bytes, so only for the chars encoded with one byte they are the same
             final int asciiPrefix = asciiPrefix(json);
             if (expectedParser.getErrorPosition() > asciiPrefix) {

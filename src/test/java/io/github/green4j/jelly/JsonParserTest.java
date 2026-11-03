@@ -310,7 +310,7 @@ public class JsonParserTest {
 
         // whitespaces out of the literal
         events.clear();
-        copyingParser.parse(" \t\r\n\"te st\"  \t\r\n\"");
+        copyingParser.parse(" \t\r\n\"te st\"  \t\r\n");
         copyingParser.eoj();
         assertNotNull(events.pop().as(JsonEvents.JsonEnd.class));
         event = events.pop().as(JsonEvents.StringValue.class);
@@ -798,7 +798,7 @@ public class JsonParserTest {
         parser.parse("[");
         parser.parse("{ \"a_1\": 1, \"a_2\": true},");
         parser.parse("{ \"b_1\": \"b_1 value\", \"b_2\": null},");
-        parser.parse("{},");
+        parser.parse("{}");
         parser.parse("]");
         parser.eoj();
 
@@ -1105,6 +1105,49 @@ public class JsonParserTest {
             parser.parse(json, cut, json.length() - cut);
             parser.eoj();
             assertEquals(expectedEvents, events, "Cut at " + cut);
+        }
+    }
+
+    @Test
+    public void testTrailingCommaAndValueAfterRootAreErrors() {
+        final Object[][] cases = {
+            {"[1,]", "Unexpected ']'", 3},
+            {"{\"a\":1,}", "Unexpected '}'", 7},
+            {"{\"a\":[1,]}", "Unexpected ']'", 8},
+            {"[[1,],2]", "Unexpected ']'", 4},
+            {"1 2", "Unexpected number", 2},
+            {"[1] 2", "Unexpected number", 4},
+            {"[1] 2 ", "Unexpected number", 4},
+            {"{} 1", "Unexpected number", 3},
+            {"true 1", "Unexpected number", 5},
+            {"null 1", "Unexpected number", 5},
+            {"\"s\" 1", "Unexpected number", 4},
+            {"[1] -", "Incorrect number", 4},
+            {"[1] 1e", "Incorrect number", 4},
+            {"[1] tr", "'true' expected", 4},
+            {"[1] \"ab", "Incorrect string", 4}
+        };
+
+        final JsonEvents events = new JsonEvents();
+        final JsonParser parser = new JsonParser().setListener(events);
+        for (final Object[] c : cases) {
+            final String json = (String) c[0];
+            final int position = (Integer) c[2];
+
+            // an error in the first part can be followed by others in the second one,
+            // so the first error notified is checked
+            for (int cut = 0; cut < json.length(); cut++) {
+                events.clear();
+                parser.parse(json, 0, cut);
+                parser.parse(json, cut, json.length() - cut);
+                parser.eoj();
+                final JsonEvents.Error error = events.firstError();
+                assertNotNull(error, json + ", cut at " + cut);
+                assertEquals(c[1], error.string(), json + ", cut at " + cut);
+                // the position is in the part the lexema of the error starts in
+                assertEquals(position < cut ? position : position - cut, error.position(),
+                        json + ", cut at " + cut);
+            }
         }
     }
 

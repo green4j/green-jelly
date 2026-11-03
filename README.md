@@ -106,6 +106,7 @@ The library provides a default implementation of the listener, `JsonParserListen
 The supported format of number values is a bit more relaxed than the one specified in [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm):
 * the numbers can start with either `+` or `-`
 * leading zeros are allowed for both the mantissa and the exponent
+* the fractional part can be empty: `1.` is `1` and `1.e5` is `1e5`
 * the mantissa is represented by Java's signed `long`, which is a bit wider than JavaScript numbers [-(2^53)+1, (2^53)-1]
 
 To prevent memory allocation and unnecessary computations, the library doesn't implement any fixed or floating point arithmetic. Numbers are represented by the following interface:
