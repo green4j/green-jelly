@@ -197,7 +197,7 @@ public class JsonObject {
     }
 
     public void putNull(final String member) {
-        putMember(member, null);
+        putMember(member, JsonValue.newNull());
     }
 
     public boolean isNull(final String member) {
@@ -210,9 +210,10 @@ public class JsonObject {
 
     public boolean isNullRequired(final String member) {
         final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asBooleanRequired() :
-                NULL_VALUE.isNull();
+        if (jsonValue == null) {
+            throw new IllegalStateException("Required member missed");
+        }
+        return jsonValue.isNull();
     }
 
     JsonValue putObjectValue(final String member) {

@@ -277,6 +277,6 @@ public final class JsonValue {
 
     @Override
     public String toString() {
-        return value != null ? value.toString() : "";
+        return String.valueOf(value);
     }
 }

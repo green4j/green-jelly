@@ -37,12 +37,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonValueBuilderTest {
 
     static final String[] DOCUMENTS = {
-        "{\"name\":\"va\\\"l\\u0041ue\",\"t\":true,\"f\":false,"
+        "{\"name\":\"va\\\"l\\u0041ue\",\"t\":true,\"f\":false,\"n\":null,"
                 + "\"numbers\":[0,-12,3.25,4e2,5.5E-3],"
                 + "\"nested\":[{\"a\":[[],{}]},{\"b\":{\"c\":[1,[2,[3]]]}}],\"s\":\"\"}",
         "[\"желе\",\"数据\",\"😀 é \\u0436\\ud83d\\ude00\\n\","
@@ -96,6 +97,18 @@ public class JsonValueBuilderTest {
         assertTrue(fromBytes("null").isNull());
         assertEquals("é", fromBytes("\"é\"").asStringRequired());
         assertEquals(new BigDecimal("12.5"), fromBytes("12.5").asDecimalRequired());
+    }
+
+    @Test
+    void keepsNullMembers() {
+        final JsonObject object = fromBytes("{\"n\":null,\"v\":1}").asObjectRequired();
+        assertTrue(object.hasMember("n"));
+        assertTrue(object.isNull("n"));
+        assertTrue(object.isNullRequired("n"));
+        assertFalse(object.isNullRequired("v"));
+        assertFalse(object.isNull("absent"));
+        assertThrows(IllegalStateException.class, () -> object.isNullRequired("absent"));
+        assertEquals("{\"n\":null,\"v\":1}", json(fromBytes("{\"n\":null,\"v\":1}")).replaceAll("\\s", ""));
     }
 
     @Test
