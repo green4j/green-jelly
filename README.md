@@ -4,6 +4,7 @@
 
 GC-free (green) JSON parser/generator library for Java which isn't an object mapper, but aims to be:
 
+* **one pass for UTF-8 and JSON**: JSON received as UTF-8 bytes is decoded and parsed in a single pass, right from a `byte[]` or a heap or direct `ByteBuffer`, with no copying of the data and no intermediate buffer of chars; only the bytes of string values are decoded (see [Utf8JsonParser](#utf8jsonparser))
 * **minimal**: MIT licensed with no dependencies
 * **reactive styled**: the parser can parse a JSON document part by part (e.g. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens with a verbose `if` or `switch`, just handle the callback you are interested in
 * **lightweight**: the code never recurses or allocates more memory than it needs; the Flyweight pattern can be used to wrap a receive/send buffer to prevent memory copying
@@ -120,12 +121,12 @@ public interface JsonNumber {
 Feel free to use any kind of arithmetic: [decimal4j](https://github.com/tools4j/decimal4j), which supports GC-free calculations, the out-of-the-box `java.math.BigDecimal`, which is a bit slow and allocates new memory, etc. An example of using `java.math.BigDecimal`:
 
 ```java
-JsonNumber number = ...
-BigDecimal decimal = BigDecimal.valueOf(number.mantissa(), -number.exp());
+final JsonNumber number = ...
+final BigDecimal decimal = BigDecimal.valueOf(number.mantissa(), -number.exp());
 ```
 Sometimes a vendor sends numbers as string values. To parse such a value, use the static `JsonParser.parseNumber` method:
 ```java
-MutableJsonNumber number = new MutableJsonNumber();
+final MutableJsonNumber number = new MutableJsonNumber();
 JsonParser.parseNumber("134.4455", number);
 System.out.println(number);
 ```
@@ -152,16 +153,16 @@ The buffer is touched only when an overflow actually happens, so the fallback do
 
 The static `parseNumber` supports the same. Either pass your own buffer:
 ```java
-MutableJsonNumber number = new MutableJsonNumber();
-StringBuilder overflown = new StringBuilder();
+final MutableJsonNumber number = new MutableJsonNumber();
+final StringBuilder overflown = new StringBuilder();
 if (JsonParser.parseNumber("9999999999999999999999.55e-7", number, overflown)) {
-    BigDecimal exact = new BigDecimal(overflown.toString());
+    final BigDecimal exact = new BigDecimal(overflown.toString());
 }
 ```
 or use the thread local one:
 ```java
 if (JsonParser.parseNumber("9999999999999999999999.55e-7", number)) {
-    BigDecimal exact = new BigDecimal(JsonParser.lastOverflownNumber().toString());
+    final BigDecimal exact = new BigDecimal(JsonParser.lastOverflownNumber().toString());
 }
 ```
 Note that the text is normalized: leading zeros and a leading `+` aren't reproduced and the exponent is always written with a lowercase `e`. The value is exactly the one of the original number.
@@ -208,6 +209,52 @@ while (nextStep != null) {
 parser.eoj();
 ```
 
+### Utf8JsonParser
+
+`Utf8JsonParser` parses JSON encoded in UTF-8 the same way `JsonParser` parses chars, but it reads the bytes as they are,
+so decoding to chars and parsing are done in one pass. All the chars of the JSON syntax are ASCII, and a byte of a char
+encoded with several bytes is never ASCII, so the structure, the numbers and the literals are parsed right from the bytes,
+and only the bytes of string values are decoded, while they are copied into the string builder.
+
+The parser takes the same `JsonParserListener`, so a handler written for `JsonParser` works with it as is. The data can be:
+* a `byte[]`
+* a `ByteBuffer`, either heap or direct one. The bytes are read at absolute indexes, so neither the position
+  nor the limit of the buffer is changed. A direct buffer is read in place, there is no copying of its memory to the heap
+* any other storage of bytes wrapped with the `ByteSequence` interface
+
+```java
+final Utf8JsonParser parser = new Utf8JsonParser();
+parser.setListener(new JsonParserListener() {
+...
+});
+
+parser.parseAndEoj("[\"желе\",1]".getBytes(StandardCharsets.UTF_8));
+
+final ByteBuffer received = ...; // e.g. a direct buffer the data is received into
+parser.parse(received); // the bytes between the position and the limit
+parser.eoj();
+```
+
+Like `JsonParser`, the parser can be fed with a document part by part. A part may end in the middle of a char encoded
+with several bytes: the bytes read are kept by the string builder, and the char is decoded when the rest of it comes
+with the next part. So reusable receive buffers can be passed to the parser as they are.
+
+The positions passed to `onError` and returned by `getErrorPosition()` are indexes of bytes relative to the start
+of the data given to the `parse` method.
+
+#### JsonUtf8StringBuilder
+
+The string values are collected by an instance of the `JsonUtf8StringBuilder`, which decodes their bytes to chars.
+`CopyingStringBuilder` implements it, as well as `JsonStringBuilder`, so it's used by default and supports unescaping
+in the same way. Malformed UTF-8 bytes in a string value are handled according to the builder:
+* by default, each malformed sequence of bytes is replaced with U+FFFD, the same way
+  `new String(bytes, StandardCharsets.UTF_8)` does, and the parsing goes on
+* `new CopyingStringBuilder(false, true)` makes them an error of the parsing reported with `onError`
+
+```java
+final Utf8JsonParser strictParser = new Utf8JsonParser(new CopyingStringBuilder(false, true));
+```
+
 ### JsonGenerator
 
 An example:
@@ -228,9 +275,11 @@ System.out.println(writer.output().toString());
 
 ### Encodings
 
-The library works over character based abstractions, so it doesn't implement any encoding functionality. As in the case of Gson, for instance, the user has to take care of the correct bytes-to/from-chars transformation if one is required.
+`JsonParser` and `JsonGenerator` work over character based abstractions. JSON encoded in UTF-8 can be parsed
+with no decoding of the data beforehand with `Utf8JsonParser` (see [Utf8JsonParser](#utf8jsonparser)).
+For other encodings the user has to take care of the correct bytes-to/from-chars transformation.
 
-At the same time, there are a few specific classes to support JSON generation in different encodings if required:
+There are a few specific classes to support JSON generation in different encodings if required:
 
 | Json Writer                                    | Buffer Type/Encoding                                                                |
 |------------------------------------------------|-----------------------------------------------------------------------------------|
@@ -254,12 +303,16 @@ Run them all, or choose some of them and pass any other JMH options, with:
 | `JsonParserBenchmark`              | Parsing of a whole document, given as a `String`, of every kind and with both string builders     |
 | `JsonParserInputBenchmark`         | Parsing in a process which gives the parser several `CharSequence` implementations                |
 | `JsonParserChunkedBenchmark`       | Parsing of a document coming part by part, with lexemas cut by the boundaries of the parts        |
+| `Utf8JsonParserBenchmark`          | Parsing of a document received as UTF-8 bytes: `Utf8JsonParser` reading a `byte[]` or a direct `ByteBuffer`, compared to decoding the bytes to chars first and parsing them with `JsonParser` |
 | `JsonGeneratorBenchmark`           | Generating of a document of every kind with every writer, with and without indenting              |
 | `JsonParserComparisonBenchmark`    | The parser compared to Jackson and Gson: every member name, string and number of a document is read |
 | `JsonGeneratorComparisonBenchmark` | The generator compared to Jackson and Gson: the same kinds of documents, the strings are escaped   |
 
-Comparison with Jackson 2.21.6 and Gson 2.13.1 on documents of 40 records, Apple M1 Pro, Corretto 21.0.3,
-a median of 3 forks, ns/op (indicative numbers, less is better):
+The results below are measured on: Apple M1 Pro (8 performance and 2 efficiency cores), 32 GB of RAM, macOS 26.4,
+Amazon Corretto 21.0.3 (OpenJDK 64-Bit Server VM with the default options), JMH 1.37, one thread.
+The documents have 40 records. The numbers are ns/op, indicative only, less is better.
+
+Comparison with Jackson 2.21.6 and Gson 2.13.1, a median of 3 forks:
 
 | Document | Parser: green-jelly | Jackson | Gson | Generator: green-jelly | Jackson | Gson |
 |----------|--------------------:|--------:|-----:|-----------------------:|--------:|-----:|
@@ -271,9 +324,25 @@ The parser of green-jelly unescapes the strings with `CopyingStringBuilder`, Jac
 and Gson creates a `String`. A decimal is given by green-jelly as a mantissa and an exponent, while Jackson and Gson parse
 it to a `double` and the generators of them format a `double`. Jackson and green-jelly generate UTF-8 bytes, Gson generates chars.
 
+Parsing of a document received as UTF-8 bytes (`Utf8JsonParserBenchmark`), a median of 3 forks (5 for PRETTY):
+
+| Document | `Utf8JsonParser`, `byte[]` | `Utf8JsonParser`, direct `ByteBuffer` | `CharsetDecoder` to `char[]` + `JsonParser` | `new String` + `JsonParser` |
+|----------|---------------------------:|--------------------------------------:|--------------------------------------------:|----------------------------:|
+| NUMBERS  | 5638                       | 6451                                  | 6450                                        | 5069                        |
+| DECIMALS | 7307                       | 8360                                  | 8034                                        | 7705                        |
+| STRINGS  | 6027                       | 7740                                  | 8070                                        | 6730                        |
+| ESCAPED  | 12743                      | 17678                                 | 14649                                       | 11972                       |
+| UNICODE  | 15560                      | 18828                                 | 19823                                       | 17913                       |
+| PRETTY   | 14577                      | 14818                                 | 14763                                       | 11427                       |
+
+The strings are copied and unescaped with `CopyingStringBuilder` in all the cases. Decoding with a `CharsetDecoder`
+to a reused array of chars is the way to get chars from bytes with no garbage; it needs a buffer of chars
+for the whole document and one more pass over the data. `new String` allocates a new string for each document.
+
 A few things to know to get the most out of the library:
 * the parser reads the given data in place, with `CharSequence.charAt()`, nothing is copied but the values of the strings. It's the fastest when a process gives the parser one implementation of `CharSequence` only: then the calls are inlined, while with several implementations every call is a virtual one
 * with `FlyweightStringBuilder` the strings of a document aren't copied at all, so it's the best choice if the whole document is available and there is no need to unescape the values
+* for UTF-8 bytes `Utf8JsonParser` is the fastest with a `byte[]` or a heap `ByteBuffer`. A direct `ByteBuffer` is read in place with no copying, but every single byte read from it pays for the checks of `ByteBuffer.get(int)`; the long runs of plain bytes of strings are read eight bytes at once
 * a custom `BufferingWriter` should override `append(char[], int, int)` with a bulk copying, since the generator writes all the numbers with it
 
 ## JSON Value
