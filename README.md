@@ -31,8 +31,8 @@ Example for Maven:
 
 Just run the standard Gradle build and install process:
 
-```
-    ./gradlew
+```shell
+./gradlew
 ```
 
 ## Usage
@@ -69,7 +69,7 @@ While creating an instance of the `JsonParser`, an instance of the `JsonStringBu
 
 While parsing you can be notified about the following events with an instance of the `JsonParserListener`:
 
-```
+```java
 void onJsonStarted();
 
 void onError(String error, int position);
@@ -170,7 +170,7 @@ Note that the text is normalized: leading zeros and a leading `+` aren't reprodu
 #### Error handling
 
 If the parser detects an error while parsing, you receive a notification with the `onError(String error, int position)` callback. Also, after control is given back from the `parse` method, you can check the error with the following methods:
-```
+```java
 boolean hasError()
 
 String getError()
@@ -228,7 +228,7 @@ parser.setListener(new JsonParserListener() {
 ...
 });
 
-parser.parseAndEoj("[\"желе\",1]".getBytes(StandardCharsets.UTF_8));
+parser.parseAndEoj("[\"gelée\",1]".getBytes(StandardCharsets.UTF_8));
 
 final ByteBuffer received = ...; // e.g. a direct buffer the data is received into
 parser.parse(received); // the bytes between the position and the limit
@@ -293,7 +293,7 @@ Each of the classes has its own internal mutable buffer which can be passed to I
 
 The JMH benchmarks live in the `src/jmh` source set, which is built by `./gradlew build`, but doesn't get into the released artifacts.
 Run them all, or choose some of them and pass any other JMH options, with:
-```
+```shell
 ./gradlew jmh
 ./gradlew jmh -PjmhArgs="JsonParserBenchmark -p document=DECIMALS -prof gc"
 ```
@@ -353,7 +353,7 @@ A good example of an approach like that is the `JSON.simple` library. The `Green
 package, `io.github.green4j.jelly.simple`.
 
 The `io.github.green4j.jelly.simple.JsonValue` class is the main class to construct a representation of a JSON document:
-```
+```java
 final JsonValue json = JsonValue.newObject();
 final JsonObject user = json.asObject();
 user.putString("name", "Mike");
@@ -364,7 +364,7 @@ rates.addInteger(8);
 ```
 
 A `JsonValue` can be serialized with an `io.github.green4j.jelly.simple.JsonWriter` or with a `java.io.Writer`:
-```
+```java
 final JsonValue json = ...
 
 final StringBuilder output = new StringBuilder();
@@ -378,7 +378,7 @@ System.out.println(stringWriter);
 ```
 
 To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
-```
+```java
 final JsonValueParser parser = new JsonValueParser();
 final JsonValue json = parser.parseAndEoj("{ \"name\": \"Mike\", \"age\": 23 }");
 System.out.println(json);
