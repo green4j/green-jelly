@@ -31,16 +31,19 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonValueExceptionTest {
 
     /**
-     * Every required accessor there is, asked for a value of another type and for a member which isn't there:
-     * each one throws an {@link IllegalStateException} which names the member or the item and says what it is.
+     * Every required accessor there is, asked for a value of another type, for a member which isn't there and
+     * for an item past either end: each one throws an {@link IllegalStateException} which names the member or
+     * the item and says what it is.
      */
     @Test
     void everyRequiredAccessorThrowsIt() {
@@ -74,14 +77,18 @@ public class JsonValueExceptionTest {
         accessors.put("Required string member 'z' is null", () -> object.getStringRequired("z"));
         accessors.put("Required string member 'absent' missed", () -> object.getStringRequired("absent"));
         accessors.put("Required member 'absent' missed", () -> object.isNullRequired("absent"));
-        accessors.put("Required object item 0 is a string", () -> array.getObjectRequired(0));
-        accessors.put("Required array item 0 is a string", () -> array.getArrayRequired(0));
-        accessors.put("Required integer item 0 is a string", () -> array.getIntegerRequired(0));
-        accessors.put("Required long item 0 is a string", () -> array.getLongRequired(0));
-        accessors.put("Required double item 0 is a string", () -> array.getDoubleRequired(0));
-        accessors.put("Required decimal item 0 is a string", () -> array.getDecimalRequired(0));
-        accessors.put("Required boolean item 0 is a string", () -> array.getBooleanRequired(0));
+        for (final int index : new int[] {0, 2, -1}) { // of another type, and past either end
+            final String what = " item " + index + " " + (index == 0 ? "is a string" : "missed");
+            accessors.put("Required object" + what, () -> array.getObjectRequired(index));
+            accessors.put("Required array" + what, () -> array.getArrayRequired(index));
+            accessors.put("Required integer" + what, () -> array.getIntegerRequired(index));
+            accessors.put("Required long" + what, () -> array.getLongRequired(index));
+            accessors.put("Required double" + what, () -> array.getDoubleRequired(index));
+            accessors.put("Required decimal" + what, () -> array.getDecimalRequired(index));
+            accessors.put("Required boolean" + what, () -> array.getBooleanRequired(index));
+        }
         accessors.put("Required string item 1 is a number", () -> array.getStringRequired(1));
+        accessors.put("Required string item 2 missed", () -> array.getStringRequired(2));
 
         for (final Map.Entry<String, Executable> accessor : accessors.entrySet()) {
             final JsonValueException missed =
@@ -107,5 +114,25 @@ public class JsonValueExceptionTest {
         assertEquals("x", array.getStringRequired(0));
         assertEquals(2L, array.getLongRequired(1));
         assertTrue(array.getBooleanRequired(2));
+    }
+
+    /**
+     * An item past either end is read by a getter which isn't required as null, as a member which isn't there is.
+     */
+    @Test
+    void anItemPastEitherEndIsReadAsNull() {
+        final JsonArray array = new JsonValueParser().parseAndEoj("[1]").asArrayRequired();
+
+        for (final int index : new int[] {1, -1}) {
+            assertNull(array.getObject(index));
+            assertNull(array.getArray(index));
+            assertNull(array.getString(index));
+            assertEquals(0, array.getInteger(index));
+            assertEquals(0L, array.getLong(index));
+            assertEquals(0d, array.getDouble(index));
+            assertEquals(BigDecimal.ZERO, array.getDecimal(index));
+            assertFalse(array.getBoolean(index));
+        }
+        assertEquals(1, array.getInteger(0));
     }
 }

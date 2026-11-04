@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class JsonArray {
+    private static final JsonValue MISSED = JsonValue.newNull();
+
     private final List<JsonValue> items = new ArrayList<>();
 
     JsonArray() {
@@ -42,7 +44,7 @@ public class JsonArray {
     }
 
     public JsonObject getObject(final int index) {
-        return items.get(index).asObject();
+        return item(index).asObject();
     }
 
     public JsonObject getObjectRequired(final int index) {
@@ -54,7 +56,7 @@ public class JsonArray {
     }
 
     public JsonArray getArray(final int index) {
-        return items.get(index).asArray();
+        return item(index).asArray();
     }
 
     public JsonArray getArrayRequired(final int index) {
@@ -66,7 +68,7 @@ public class JsonArray {
     }
 
     public String getString(final int index) {
-        return items.get(index).asString();
+        return item(index).asString();
     }
 
     public String getStringRequired(final int index) {
@@ -78,7 +80,7 @@ public class JsonArray {
     }
 
     public int getInteger(final int index) {
-        return items.get(index).asInteger();
+        return item(index).asInteger();
     }
 
     public int getIntegerRequired(final int index) {
@@ -90,7 +92,7 @@ public class JsonArray {
     }
 
     public long getLong(final int index) {
-        return items.get(index).asLong();
+        return item(index).asLong();
     }
 
     public long getLongRequired(final int index) {
@@ -102,7 +104,7 @@ public class JsonArray {
     }
 
     public double getDouble(final int index) {
-        return items.get(index).asDouble();
+        return item(index).asDouble();
     }
 
     public double getDoubleRequired(final int index) {
@@ -118,7 +120,7 @@ public class JsonArray {
     }
 
     public BigDecimal getDecimal(final int index) {
-        return items.get(index).asDecimal();
+        return item(index).asDecimal();
     }
 
     public BigDecimal getDecimalRequired(final int index) {
@@ -130,7 +132,7 @@ public class JsonArray {
     }
 
     public boolean getBoolean(final int index) {
-        return items.get(index).asBoolean();
+        return item(index).asBoolean();
     }
 
     public boolean getBooleanRequired(final int index) {
@@ -138,11 +140,23 @@ public class JsonArray {
     }
 
     private JsonValue required(final int index, final Class<?> type, final String typeName) {
-        final JsonValue item = items.get(index);
+        final JsonValue item = present(index, typeName);
         if (!item.is(type)) {
             throw new JsonValueException("Required " + typeName + " item " + index + " is " + item.kind());
         }
         return item;
+    }
+
+    private JsonValue present(final int index, final String typeName) {
+        if (index < 0 || index >= items.size()) {
+            throw new JsonValueException("Required " + typeName + " item " + index + " missed");
+        }
+        return items.get(index);
+    }
+
+    // an item past either end is read as null, as a member which isn't there is
+    private JsonValue item(final int index) {
+        return index >= 0 && index < items.size() ? items.get(index) : MISSED;
     }
 
     public List<JsonValue> items() {

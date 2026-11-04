@@ -389,10 +389,13 @@ An error is thrown as `IllegalArgumentException`, and the same parser can be use
 To drop a document being parsed, call `reset()`.
 
 A `...Required` method of `JsonValue`, `JsonObject` or `JsonArray` throws `JsonValueException` when the value
-is missed or is of another type. The message names the member or the item and says what it is, such as
-`Required string member 'name' missed`, `Required long item 3 is a string` or `Required object is null`.
-It's the document which is wrong rather than the code, so a server can answer the client with it as a bad request.
-It extends `IllegalStateException`.
+is missed, an item past either end of an array included, or is of another type. The message names the member or
+the item and says what it is, such as `Required string member 'name' missed`, `Required long item 3 is a string`
+or `Required object is null`. It's the document which is wrong rather than the code, so a server can answer
+the client with it as a bad request. It extends `IllegalStateException`.
+
+The other getters of `JsonObject` and `JsonArray` read a member which isn't there, or an item past either end,
+as `null`: they return `null`, `0`, `false` or a zero `BigDecimal`.
 
 The tree is built by `JsonValueBuilder`, which is a `JsonParserListener`, so it can be given to any parser.
 With `Utf8JsonParser` a `JsonValue` is built right from UTF-8 bytes, in one pass and with no decoding to chars beforehand:
