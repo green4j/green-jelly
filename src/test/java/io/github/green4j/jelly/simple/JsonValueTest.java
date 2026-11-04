@@ -58,10 +58,10 @@ public class JsonValueTest {
     void writesDoublesAsTheirShortestDecimal() {
         final JsonValue json = JsonValue.newArray();
         final JsonArray array = json.asArrayRequired();
-        array.putDouble(0.1);
-        array.putDouble(-1234.5678);
-        array.putDouble(1e-10);
-        array.putDouble(3);
+        array.addDouble(0.1);
+        array.addDouble(-1234.5678);
+        array.addDouble(1e-10);
+        array.addDouble(3);
 
         assertEquals("[0.1,-1234.5678,1.0e-10,3.0]", json(json).replaceAll("\\s", ""));
         assertEquals(new BigDecimal("0.1"), array.getDecimal(0));
@@ -76,7 +76,7 @@ public class JsonValueTest {
             final IllegalArgumentException notTaken =
                     assertThrows(IllegalArgumentException.class, () -> JsonValue.newDouble(notJson));
             assertEquals("JSON has no number " + notJson, notTaken.getMessage());
-            assertThrows(IllegalArgumentException.class, () -> array.putDouble(notJson));
+            assertThrows(IllegalArgumentException.class, () -> array.addDouble(notJson));
             assertThrows(IllegalArgumentException.class, () -> object.putDouble("d", notJson));
         }
         assertEquals(0, array.size());

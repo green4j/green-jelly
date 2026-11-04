@@ -99,7 +99,7 @@ public class JsonArray {
         return requiredWhole(index, "long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
-    public void putDouble(final double value) {
+    public void addDouble(final double value) {
         items.add(JsonValue.newDouble(value));
     }
 
