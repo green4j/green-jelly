@@ -54,6 +54,9 @@ public final class JsonValue {
     }
 
     public static JsonValue newDouble(final double value) {
+        if (!Double.isFinite(value)) {
+            throw new IllegalArgumentException("JSON has no number " + value);
+        }
         return new JsonValue(value);
     }
 
@@ -93,7 +96,6 @@ public final class JsonValue {
         return value;
     }
 
-    @SuppressWarnings("unchecked")
     public JsonObject asObject() {
         if (value instanceof JsonObject) {
             return (JsonObject) value;
@@ -101,15 +103,10 @@ public final class JsonValue {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     public JsonObject asObjectRequired() {
-        if (value instanceof JsonObject) {
-            return (JsonObject) value;
-        }
-        throw new IllegalStateException("Required object missed");
+        return required(JsonObject.class, "object").asObject();
     }
 
-    @SuppressWarnings("unchecked")
     public JsonArray asArray() {
         if (value instanceof JsonArray) {
             return (JsonArray) value;
@@ -117,15 +114,10 @@ public final class JsonValue {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     public JsonArray asArrayRequired() {
-        if (value instanceof JsonArray) {
-            return (JsonArray) value;
-        }
-        throw new IllegalStateException("Required array missed");
+        return required(JsonArray.class, "array").asArray();
     }
 
-    @SuppressWarnings("unchecked")
     public String asString() {
         if (value instanceof String) {
             return (String) value;
@@ -133,15 +125,10 @@ public final class JsonValue {
         return null;
     }
 
-    @SuppressWarnings("unchecked")
     public String asStringRequired() {
-        if (value instanceof String) {
-            return (String) value;
-        }
-        throw new IllegalStateException("Required string missed");
+        return required(String.class, "string").asString();
     }
 
-    @SuppressWarnings("unchecked")
     public int asInteger() {
         if (value instanceof Number) {
             return ((Number) value).intValue();
@@ -149,15 +136,10 @@ public final class JsonValue {
         return 0;
     }
 
-    @SuppressWarnings("unchecked")
     public int asIntegerRequired() {
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        }
-        throw new IllegalStateException("Required integer missed");
+        return (int) requiredWhole("integer", Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
-    @SuppressWarnings("unchecked")
     public long asLong() {
         if (value instanceof Number) {
             return ((Number) value).longValue();
@@ -165,15 +147,10 @@ public final class JsonValue {
         return 0L;
     }
 
-    @SuppressWarnings("unchecked")
     public long asLongRequired() {
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
-        }
-        throw new IllegalStateException("Required long missed");
+        return requiredWhole("long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
-    @SuppressWarnings("unchecked")
     public double asDouble() {
         if (value instanceof Number) {
             return ((Number) value).doubleValue();
@@ -181,15 +158,10 @@ public final class JsonValue {
         return 0d;
     }
 
-    @SuppressWarnings("unchecked")
     public double asDoubleRequired() {
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        }
-        throw new IllegalStateException("Required double missed");
+        return required(Number.class, "double").asDouble();
     }
 
-    @SuppressWarnings("unchecked")
     public BigDecimal asDecimal() {
         if (value instanceof Number) {
             final Number number = (Number) value;
@@ -209,14 +181,9 @@ public final class JsonValue {
     }
 
     public BigDecimal asDecimalRequired() {
-        final BigDecimal result = asDecimal();
-        if (result == ZERO) {
-            throw new IllegalStateException("Required decimal missed");
-        }
-        return result;
+        return required(Number.class, "decimal").asDecimal();
     }
 
-    @SuppressWarnings("unchecked")
     public boolean asBoolean() {
         if (value instanceof Boolean) {
             return ((Boolean) value).booleanValue();
@@ -224,16 +191,76 @@ public final class JsonValue {
         return false;
     }
 
-    @SuppressWarnings("unchecked")
     public boolean asBooleanRequired() {
-        if (value instanceof Boolean) {
-            return ((Boolean) value).booleanValue();
-        }
-        throw new IllegalStateException("Required boolean missed");
+        return required(Boolean.class, "boolean").asBoolean();
     }
 
     public boolean isNull() {
         return value == null;
+    }
+
+    boolean is(final Class<?> type) {
+        return type.isInstance(value);
+    }
+
+    // what the value is, for a message
+    String kind() {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof JsonObject) {
+            return "an object";
+        }
+        if (value instanceof JsonArray) {
+            return "an array";
+        }
+        if (value instanceof String) {
+            return "a string";
+        }
+        if (value instanceof Number) {
+            return "a number";
+        }
+        return "a boolean";
+    }
+
+    // what the value is when it isn't a whole number within [min, max], or null when it is
+    String notWhole(final long min, final long max) {
+        if (!(value instanceof Number)) {
+            return kind();
+        }
+        if (value instanceof Long
+                || value instanceof Integer
+                || value instanceof Short
+                || value instanceof Byte) {
+            final long number = ((Number) value).longValue();
+            return number >= min && number <= max ? null : "out of range";
+        }
+        final BigDecimal decimal;
+        if (value instanceof BigDecimal) {
+            decimal = (BigDecimal) value;
+        } else {
+            decimal = new BigDecimal(((Number) value).doubleValue());
+        }
+        if (decimal.scale() > 0 && decimal.stripTrailingZeros().scale() > 0) {
+            return "a fraction";
+        }
+        return decimal.compareTo(BigDecimal.valueOf(min)) >= 0
+                && decimal.compareTo(BigDecimal.valueOf(max)) <= 0 ? null : "out of range";
+    }
+
+    private long requiredWhole(final String typeName, final long min, final long max) {
+        final String notWhole = notWhole(min, max);
+        if (notWhole != null) {
+            throw new JsonValueException("Required " + typeName + " is " + notWhole);
+        }
+        return asLong();
+    }
+
+    private JsonValue required(final Class<?> type, final String typeName) {
+        if (is(type)) {
+            return this;
+        }
+        throw new JsonValueException("Required " + typeName + " is " + kind());
     }
 
     public void toJsonAndEoj(final JsonWriter jsonWriter) {
@@ -247,7 +274,6 @@ public final class JsonValue {
         toJsonAndEoj(new JsonWriterGenerator(jsonGenerator));
     }
 
-    @SuppressWarnings("unchecked")
     public void toJson(final JsonWriter jsonWriter) {
         if (isNull()) {
             jsonWriter.nullValue();

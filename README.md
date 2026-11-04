@@ -378,6 +378,7 @@ json.toJsonAndEoj(stringWriter);
 System.out.println(stringWriter);
 ```
 A number whose mantissa doesn't fit into a `long` is written truncated to 18 digits, with no rounding.
+A `double` which is `NaN` or infinite is no JSON number, so it isn't taken: `IllegalArgumentException` is thrown.
 
 To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
 ```java
@@ -387,6 +388,18 @@ System.out.println(json);
 ```
 An error is thrown as `IllegalArgumentException`, and the same parser can be used for the next document after it.
 To drop a document being parsed, call `reset()`.
+
+A `...Required` method of `JsonValue`, `JsonObject` or `JsonArray` throws `JsonValueException` when the value
+is missed, an item past either end of an array included, or is of another type. The message names the member or
+the item and says what it is, such as `Required string member 'name' missed`, `Required long item 3 is a string`
+or `Required object is null`. It's the document which is wrong rather than the code, so a server can answer
+the client with it as a bad request. It extends `IllegalStateException`.
+
+An integer or a long is required to be a whole number within the range of its type, so `1.0` and `1e2` are read,
+but not `1.5`, which is `a fraction`, nor `1e10` asked for as an integer, which is `out of range`.
+
+The other getters of `JsonObject` and `JsonArray` read a member which isn't there, or an item past either end,
+as `null`: they return `null`, `0`, `false` or a zero `BigDecimal`.
 
 The tree is built by `JsonValueBuilder`, which is a `JsonParserListener`, so it can be given to any parser.
 With `Utf8JsonParser` a `JsonValue` is built right from UTF-8 bytes, in one pass and with no decoding to chars beforehand:

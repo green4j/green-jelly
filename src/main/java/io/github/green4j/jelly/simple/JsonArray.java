@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class JsonArray {
+    private static final JsonValue MISSED = JsonValue.newNull();
+
     private final List<JsonValue> items = new ArrayList<>();
 
     JsonArray() {
@@ -42,11 +44,11 @@ public class JsonArray {
     }
 
     public JsonObject getObject(final int index) {
-        return items.get(index).asObject();
+        return item(index).asObject();
     }
 
     public JsonObject getObjectRequired(final int index) {
-        return items.get(index).asObjectRequired();
+        return required(index, JsonObject.class, "object").asObject();
     }
 
     public JsonArray addArray() {
@@ -54,11 +56,11 @@ public class JsonArray {
     }
 
     public JsonArray getArray(final int index) {
-        return items.get(index).asArray();
+        return item(index).asArray();
     }
 
     public JsonArray getArrayRequired(final int index) {
-        return items.get(index).asArrayRequired();
+        return required(index, JsonArray.class, "array").asArray();
     }
 
     public void addString(final String value) {
@@ -66,11 +68,11 @@ public class JsonArray {
     }
 
     public String getString(final int index) {
-        return items.get(index).asString();
+        return item(index).asString();
     }
 
     public String getStringRequired(final int index) {
-        return items.get(index).asStringRequired();
+        return required(index, String.class, "string").asString();
     }
 
     public void addInteger(final int value) {
@@ -78,11 +80,11 @@ public class JsonArray {
     }
 
     public int getInteger(final int index) {
-        return items.get(index).asInteger();
+        return item(index).asInteger();
     }
 
     public int getIntegerRequired(final int index) {
-        return items.get(index).asIntegerRequired();
+        return (int) requiredWhole(index, "integer", Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     public void addLong(final long value) {
@@ -90,23 +92,23 @@ public class JsonArray {
     }
 
     public long getLong(final int index) {
-        return items.get(index).asLong();
+        return item(index).asLong();
     }
 
     public long getLongRequired(final int index) {
-        return items.get(index).asLongRequired();
+        return requiredWhole(index, "long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
-    public void putDouble(final double value) {
+    public void addDouble(final double value) {
         items.add(JsonValue.newDouble(value));
     }
 
     public double getDouble(final int index) {
-        return items.get(index).asDouble();
+        return item(index).asDouble();
     }
 
     public double getDoubleRequired(final int index) {
-        return items.get(index).asDoubleRequired();
+        return required(index, Number.class, "double").asDouble();
     }
 
     public void addDecimal(final JsonNumber value) {
@@ -118,11 +120,11 @@ public class JsonArray {
     }
 
     public BigDecimal getDecimal(final int index) {
-        return items.get(index).asDecimal();
+        return item(index).asDecimal();
     }
 
     public BigDecimal getDecimalRequired(final int index) {
-        return items.get(index).asDecimalRequired();
+        return required(index, Number.class, "decimal").asDecimal();
     }
 
     public void addBoolean(final boolean value) {
@@ -130,11 +132,40 @@ public class JsonArray {
     }
 
     public boolean getBoolean(final int index) {
-        return items.get(index).asBoolean();
+        return item(index).asBoolean();
     }
 
     public boolean getBooleanRequired(final int index) {
-        return items.get(index).asBooleanRequired();
+        return required(index, Boolean.class, "boolean").asBoolean();
+    }
+
+    private JsonValue required(final int index, final Class<?> type, final String typeName) {
+        final JsonValue item = present(index, typeName);
+        if (!item.is(type)) {
+            throw new JsonValueException("Required " + typeName + " item " + index + " is " + item.kind());
+        }
+        return item;
+    }
+
+    private long requiredWhole(final int index, final String typeName, final long min, final long max) {
+        final JsonValue item = present(index, typeName);
+        final String notWhole = item.notWhole(min, max);
+        if (notWhole != null) {
+            throw new JsonValueException("Required " + typeName + " item " + index + " is " + notWhole);
+        }
+        return item.asLong();
+    }
+
+    private JsonValue present(final int index, final String typeName) {
+        if (index < 0 || index >= items.size()) {
+            throw new JsonValueException("Required " + typeName + " item " + index + " missed");
+        }
+        return items.get(index);
+    }
+
+    // an item past either end is read as null, as a member which isn't there is
+    private JsonValue item(final int index) {
+        return index >= 0 && index < items.size() ? items.get(index) : MISSED;
     }
 
     public List<JsonValue> items() {

@@ -32,8 +32,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class JsonObject {
-    private static final JsonValue NULL_VALUE = JsonValue.newNull();
-
     // a member put again keeps its position and gets the new value
     private final Map<String, JsonValue> membersByName = new LinkedHashMap<>();
 
@@ -54,10 +52,7 @@ public class JsonObject {
     }
 
     public JsonObject getObjectRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asObjectRequired() :
-                NULL_VALUE.asObjectRequired();
+        return required(member, JsonObject.class, "object").asObject();
     }
 
     public JsonArray putArray(final String member) {
@@ -70,10 +65,7 @@ public class JsonObject {
     }
 
     public JsonArray getArrayRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asArrayRequired() :
-                NULL_VALUE.asArrayRequired();
+        return required(member, JsonArray.class, "array").asArray();
     }
 
     public void putString(final String member, final String value) {
@@ -89,10 +81,7 @@ public class JsonObject {
     }
 
     public String getStringRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asStringRequired() :
-                NULL_VALUE.asStringRequired();
+        return required(member, String.class, "string").asString();
     }
 
     public void putInteger(final String member, final int value) {
@@ -108,10 +97,7 @@ public class JsonObject {
     }
 
     public int getIntegerRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asIntegerRequired() :
-                NULL_VALUE.asIntegerRequired();
+        return (int) requiredWhole(member, "integer", Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     public void putLong(final String member, final long value) {
@@ -127,10 +113,7 @@ public class JsonObject {
     }
 
     public long getLongRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asLongRequired() :
-                NULL_VALUE.asLongRequired();
+        return requiredWhole(member, "long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
     public void putDouble(final String member, final double value) {
@@ -146,10 +129,7 @@ public class JsonObject {
     }
 
     public double getDoubleRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asDoubleRequired() :
-                NULL_VALUE.asDoubleRequired();
+        return required(member, Number.class, "double").asDouble();
     }
 
     public void putDecimal(final String member, final JsonNumber value) {
@@ -169,10 +149,7 @@ public class JsonObject {
     }
 
     public BigDecimal getDecimalRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asDecimalRequired() :
-                NULL_VALUE.asDecimalRequired();
+        return required(member, Number.class, "decimal").asDecimal();
     }
 
     public void putBoolean(final String member, final boolean value) {
@@ -188,10 +165,7 @@ public class JsonObject {
     }
 
     public boolean getBooleanRequired(final String member) {
-        final JsonValue jsonValue = membersByName.get(member);
-        return jsonValue != null
-                ? jsonValue.asBooleanRequired() :
-                NULL_VALUE.asBooleanRequired();
+        return required(member, Boolean.class, "boolean").asBoolean();
     }
 
     public void putNull(final String member) {
@@ -209,9 +183,34 @@ public class JsonObject {
     public boolean isNullRequired(final String member) {
         final JsonValue jsonValue = membersByName.get(member);
         if (jsonValue == null) {
-            throw new IllegalStateException("Required member missed");
+            throw new JsonValueException("Required member '" + member + "' missed");
         }
         return jsonValue.isNull();
+    }
+
+    private JsonValue required(final String member, final Class<?> type, final String typeName) {
+        final JsonValue jsonValue = present(member, typeName);
+        if (!jsonValue.is(type)) {
+            throw new JsonValueException("Required " + typeName + " member '" + member + "' is " + jsonValue.kind());
+        }
+        return jsonValue;
+    }
+
+    private long requiredWhole(final String member, final String typeName, final long min, final long max) {
+        final JsonValue jsonValue = present(member, typeName);
+        final String notWhole = jsonValue.notWhole(min, max);
+        if (notWhole != null) {
+            throw new JsonValueException("Required " + typeName + " member '" + member + "' is " + notWhole);
+        }
+        return jsonValue.asLong();
+    }
+
+    private JsonValue present(final String member, final String typeName) {
+        final JsonValue jsonValue = membersByName.get(member);
+        if (jsonValue == null) {
+            throw new JsonValueException("Required " + typeName + " member '" + member + "' missed");
+        }
+        return jsonValue;
     }
 
     JsonValue putObjectValue(final String member) {

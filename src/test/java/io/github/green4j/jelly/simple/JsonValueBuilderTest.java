@@ -159,7 +159,7 @@ public class JsonValueBuilderTest {
         assertTrue(object.isNullRequired("n"));
         assertFalse(object.isNullRequired("v"));
         assertFalse(object.isNull("absent"));
-        assertThrows(IllegalStateException.class, () -> object.isNullRequired("absent"));
+        assertThrows(JsonValueException.class, () -> object.isNullRequired("absent"));
         assertEquals("{\"n\":null,\"v\":1}", json(fromBytes("{\"n\":null,\"v\":1}")).replaceAll("\\s", ""));
     }
 
