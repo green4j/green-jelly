@@ -147,9 +147,6 @@ public class JsonValueExceptionTest {
         accessors.put("Required long member 'huge' is out of range", () -> object.getLongRequired("huge"));
         accessors.put("Required integer item 0 is a fraction", () -> array.getIntegerRequired(0));
         accessors.put("Required long is a fraction", JsonValue.newDouble(0.5d)::asLongRequired);
-        accessors.put("Required integer is out of range",
-                JsonValue.newDouble(Double.POSITIVE_INFINITY)::asIntegerRequired);
-        accessors.put("Required long is out of range", JsonValue.newDouble(Double.NaN)::asLongRequired);
 
         for (final Map.Entry<String, Executable> accessor : accessors.entrySet()) {
             final JsonValueException notWhole =

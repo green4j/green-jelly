@@ -54,6 +54,9 @@ public final class JsonValue {
     }
 
     public static JsonValue newDouble(final double value) {
+        if (!Double.isFinite(value)) {
+            throw new IllegalArgumentException("JSON has no number " + value);
+        }
         return new JsonValue(value);
     }
 
@@ -236,11 +239,7 @@ public final class JsonValue {
         if (value instanceof BigDecimal) {
             decimal = (BigDecimal) value;
         } else {
-            final double number = ((Number) value).doubleValue();
-            if (Double.isNaN(number) || Double.isInfinite(number)) {
-                return "out of range";
-            }
-            decimal = new BigDecimal(number);
+            decimal = new BigDecimal(((Number) value).doubleValue());
         }
         if (decimal.scale() > 0 && decimal.stripTrailingZeros().scale() > 0) {
             return "a fraction";

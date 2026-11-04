@@ -378,6 +378,7 @@ json.toJsonAndEoj(stringWriter);
 System.out.println(stringWriter);
 ```
 A number whose mantissa doesn't fit into a `long` is written truncated to 18 digits, with no rounding.
+A `double` which is `NaN` or infinite is no JSON number, so it isn't taken: `IllegalArgumentException` is thrown.
 
 To parse JSON and build a `JsonValue`, use the `JsonValueParser` class:
 ```java

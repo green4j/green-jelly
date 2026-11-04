@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Test;
 
 import static io.github.green4j.jelly.simple.JsonValueBuilderTest.json;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class JsonValueTest {
 
@@ -63,6 +65,22 @@ public class JsonValueTest {
 
         assertEquals("[0.1,-1234.5678,1.0e-10,3.0]", json(json).replaceAll("\\s", ""));
         assertEquals(new BigDecimal("0.1"), array.getDecimal(0));
+    }
+
+    @Test
+    void doesNotTakeADoubleWhichIsNotAJsonNumber() {
+        final JsonArray array = JsonValue.newArray().asArrayRequired();
+        final JsonObject object = JsonValue.newObject().asObjectRequired();
+
+        for (final double notJson : new double[] {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+            final IllegalArgumentException notTaken =
+                    assertThrows(IllegalArgumentException.class, () -> JsonValue.newDouble(notJson));
+            assertEquals("JSON has no number " + notJson, notTaken.getMessage());
+            assertThrows(IllegalArgumentException.class, () -> array.putDouble(notJson));
+            assertThrows(IllegalArgumentException.class, () -> object.putDouble("d", notJson));
+        }
+        assertEquals(0, array.size());
+        assertFalse(object.hasMember("d"));
     }
 
     @Test
