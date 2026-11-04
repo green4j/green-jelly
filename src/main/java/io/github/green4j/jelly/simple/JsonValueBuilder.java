@@ -104,7 +104,6 @@ public final class JsonValueBuilder implements JsonParserListener {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean onObjectStarted() {
         if (currentValue == null) {
             currentValue = JsonValue.newObject();
@@ -141,7 +140,6 @@ public final class JsonValueBuilder implements JsonParserListener {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean onArrayStarted() {
         if (currentValue == null) {
             currentValue = JsonValue.newArray();
@@ -171,7 +169,6 @@ public final class JsonValueBuilder implements JsonParserListener {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean onStringValue(final CharSequence data) {
         final String string = data.toString();
         if (currentValue == null) {
@@ -194,7 +191,6 @@ public final class JsonValueBuilder implements JsonParserListener {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean onNumberValue(final JsonNumber number) {
         if (currentValue == null) {
             currentValue = JsonValue.newDecimal(number);
@@ -224,7 +220,6 @@ public final class JsonValueBuilder implements JsonParserListener {
         return onNumberValue(number);
     }
 
-    @SuppressWarnings("unchecked")
     private void onDecimal(final BigDecimal decimal) {
         if (currentValue == null) {
             currentValue = JsonValue.newDecimal(decimal);
@@ -257,7 +252,6 @@ public final class JsonValueBuilder implements JsonParserListener {
         return true;
     }
 
-    @SuppressWarnings("unchecked")
     private void onBoolean(final boolean v) {
         if (currentValue == null) {
             currentValue = JsonValue.newBoolean(v);
@@ -279,7 +273,6 @@ public final class JsonValueBuilder implements JsonParserListener {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean onNullValue() {
         if (currentValue == null) {
             currentValue = JsonValue.newNull();

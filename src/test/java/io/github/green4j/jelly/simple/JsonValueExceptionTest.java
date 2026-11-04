@@ -1,0 +1,111 @@
+/**
+ * MIT License
+ * <p>
+ * Copyright (c) 2018-2024 Anatoly Gudkov and others.
+ * <p>
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * <p>
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * <p>
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+package io.github.green4j.jelly.simple;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class JsonValueExceptionTest {
+
+    /**
+     * Every required accessor there is, asked for a value of another type and for a member which isn't there:
+     * each one throws an {@link IllegalStateException} which names the member or the item and says what it is.
+     */
+    @Test
+    void everyRequiredAccessorThrowsIt() {
+        final JsonObject object = new JsonValueParser()
+                .parseAndEoj("{\"s\":\"x\",\"n\":1,\"z\":null}").asObjectRequired();
+        final JsonArray array = new JsonValueParser().parseAndEoj("[\"x\",1]").asArrayRequired();
+        final JsonValue string = JsonValue.newString("x");
+        final JsonValue nothing = JsonValue.newNull();
+
+        // the message expected -> the accessor
+        final Map<String, Executable> accessors = new LinkedHashMap<>();
+        accessors.put("Required object is a string", string::asObjectRequired);
+        accessors.put("Required array is a string", string::asArrayRequired);
+        accessors.put("Required string is null", nothing::asStringRequired);
+        accessors.put("Required integer is a string", string::asIntegerRequired);
+        accessors.put("Required long is a string", string::asLongRequired);
+        accessors.put("Required double is a string", string::asDoubleRequired);
+        accessors.put("Required decimal is a string", string::asDecimalRequired);
+        accessors.put("Required boolean is a string", string::asBooleanRequired);
+        for (final String member : new String[] {"s", "absent"}) { // of another type, and missed
+            final String what = " member '" + member + "' " + ("s".equals(member) ? "is a string" : "missed");
+            accessors.put("Required object" + what, () -> object.getObjectRequired(member));
+            accessors.put("Required array" + what, () -> object.getArrayRequired(member));
+            accessors.put("Required integer" + what, () -> object.getIntegerRequired(member));
+            accessors.put("Required long" + what, () -> object.getLongRequired(member));
+            accessors.put("Required double" + what, () -> object.getDoubleRequired(member));
+            accessors.put("Required decimal" + what, () -> object.getDecimalRequired(member));
+            accessors.put("Required boolean" + what, () -> object.getBooleanRequired(member));
+        }
+        accessors.put("Required string member 'n' is a number", () -> object.getStringRequired("n"));
+        accessors.put("Required string member 'z' is null", () -> object.getStringRequired("z"));
+        accessors.put("Required string member 'absent' missed", () -> object.getStringRequired("absent"));
+        accessors.put("Required member 'absent' missed", () -> object.isNullRequired("absent"));
+        accessors.put("Required object item 0 is a string", () -> array.getObjectRequired(0));
+        accessors.put("Required array item 0 is a string", () -> array.getArrayRequired(0));
+        accessors.put("Required integer item 0 is a string", () -> array.getIntegerRequired(0));
+        accessors.put("Required long item 0 is a string", () -> array.getLongRequired(0));
+        accessors.put("Required double item 0 is a string", () -> array.getDoubleRequired(0));
+        accessors.put("Required decimal item 0 is a string", () -> array.getDecimalRequired(0));
+        accessors.put("Required boolean item 0 is a string", () -> array.getBooleanRequired(0));
+        accessors.put("Required string item 1 is a number", () -> array.getStringRequired(1));
+
+        for (final Map.Entry<String, Executable> accessor : accessors.entrySet()) {
+            final JsonValueException missed =
+                    assertThrows(JsonValueException.class, accessor.getValue(), accessor.getKey());
+            assertInstanceOf(IllegalStateException.class, missed);
+            assertEquals(accessor.getKey(), missed.getMessage());
+        }
+    }
+
+    /**
+     * A value which is there and of the type asked for is returned as it is, a member or an item.
+     */
+    @Test
+    void aValueOfTheTypeAskedForIsReturned() {
+        final JsonObject object = new JsonValueParser()
+                .parseAndEoj("{\"o\":{},\"a\":[\"x\",2,true,null],\"n\":1.5,\"z\":null}").asObjectRequired();
+        final JsonArray array = object.getArrayRequired("a");
+
+        assertNotNull(object.getObjectRequired("o"));
+        assertEquals(1.5d, object.getDoubleRequired("n"));
+        assertEquals(new BigDecimal("1.5"), object.getDecimalRequired("n"));
+        assertTrue(object.isNullRequired("z"));
+        assertEquals("x", array.getStringRequired(0));
+        assertEquals(2L, array.getLongRequired(1));
+        assertTrue(array.getBooleanRequired(2));
+    }
+}
