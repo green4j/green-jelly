@@ -134,7 +134,7 @@ public final class JsonValue {
     }
 
     public int asIntegerRequired() {
-        return required(Number.class, "integer").asInteger();
+        return (int) requiredWhole("integer", Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     public long asLong() {
@@ -145,7 +145,7 @@ public final class JsonValue {
     }
 
     public long asLongRequired() {
-        return required(Number.class, "long").asLong();
+        return requiredWhole("long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
     public double asDouble() {
@@ -218,6 +218,43 @@ public final class JsonValue {
             return "a number";
         }
         return "a boolean";
+    }
+
+    // what the value is when it isn't a whole number within [min, max], or null when it is
+    String notWhole(final long min, final long max) {
+        if (!(value instanceof Number)) {
+            return kind();
+        }
+        if (value instanceof Long
+                || value instanceof Integer
+                || value instanceof Short
+                || value instanceof Byte) {
+            final long number = ((Number) value).longValue();
+            return number >= min && number <= max ? null : "out of range";
+        }
+        final BigDecimal decimal;
+        if (value instanceof BigDecimal) {
+            decimal = (BigDecimal) value;
+        } else {
+            final double number = ((Number) value).doubleValue();
+            if (Double.isNaN(number) || Double.isInfinite(number)) {
+                return "out of range";
+            }
+            decimal = new BigDecimal(number);
+        }
+        if (decimal.scale() > 0 && decimal.stripTrailingZeros().scale() > 0) {
+            return "a fraction";
+        }
+        return decimal.compareTo(BigDecimal.valueOf(min)) >= 0
+                && decimal.compareTo(BigDecimal.valueOf(max)) <= 0 ? null : "out of range";
+    }
+
+    private long requiredWhole(final String typeName, final long min, final long max) {
+        final String notWhole = notWhole(min, max);
+        if (notWhole != null) {
+            throw new JsonValueException("Required " + typeName + " is " + notWhole);
+        }
+        return asLong();
     }
 
     private JsonValue required(final Class<?> type, final String typeName) {

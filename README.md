@@ -394,6 +394,9 @@ the item and says what it is, such as `Required string member 'name' missed`, `R
 or `Required object is null`. It's the document which is wrong rather than the code, so a server can answer
 the client with it as a bad request. It extends `IllegalStateException`.
 
+An integer or a long is required to be a whole number within the range of its type, so `1.0` and `1e2` are read,
+but not `1.5`, which is `a fraction`, nor `1e10` asked for as an integer, which is `out of range`.
+
 The other getters of `JsonObject` and `JsonArray` read a member which isn't there, or an item past either end,
 as `null`: they return `null`, `0`, `false` or a zero `BigDecimal`.
 

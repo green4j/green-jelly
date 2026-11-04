@@ -84,7 +84,7 @@ public class JsonArray {
     }
 
     public int getIntegerRequired(final int index) {
-        return required(index, Number.class, "integer").asInteger();
+        return (int) requiredWhole(index, "integer", Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     public void addLong(final long value) {
@@ -96,7 +96,7 @@ public class JsonArray {
     }
 
     public long getLongRequired(final int index) {
-        return required(index, Number.class, "long").asLong();
+        return requiredWhole(index, "long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
     public void putDouble(final double value) {
@@ -145,6 +145,15 @@ public class JsonArray {
             throw new JsonValueException("Required " + typeName + " item " + index + " is " + item.kind());
         }
         return item;
+    }
+
+    private long requiredWhole(final int index, final String typeName, final long min, final long max) {
+        final JsonValue item = present(index, typeName);
+        final String notWhole = item.notWhole(min, max);
+        if (notWhole != null) {
+            throw new JsonValueException("Required " + typeName + " item " + index + " is " + notWhole);
+        }
+        return item.asLong();
     }
 
     private JsonValue present(final int index, final String typeName) {

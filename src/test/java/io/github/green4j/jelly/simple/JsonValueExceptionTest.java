@@ -117,6 +117,48 @@ public class JsonValueExceptionTest {
     }
 
     /**
+     * A required integer or long is a whole number within the range of its type, however it's written; a
+     * fraction, or a number out of the range, is named as such.
+     */
+    @Test
+    void aRequiredIntegerIsAWholeNumberWithinItsRange() {
+        final JsonObject object = new JsonValueParser().parseAndEoj("{"
+                + "\"one\":1.0,\"hundred\":1e2,\"min\":-2147483648,\"max\":9223372036854775807,"
+                + "\"half\":1.5,\"tiny\":1e-30,\"int+1\":2147483648,\"long+1\":9223372036854775808,\"huge\":1e30"
+                + "}").asObjectRequired();
+        final JsonArray array = new JsonValueParser().parseAndEoj("[2.50,-1e2]").asArrayRequired();
+
+        assertEquals(1, object.getIntegerRequired("one"));
+        assertEquals(100, object.getIntegerRequired("hundred"));
+        assertEquals(Integer.MIN_VALUE, object.getIntegerRequired("min"));
+        assertEquals(Long.MAX_VALUE, object.getLongRequired("max"));
+        assertEquals(2147483648L, object.getLongRequired("int+1"));
+        assertEquals(-100L, array.getLongRequired(1));
+        assertEquals(3, JsonValue.newDouble(3d).asIntegerRequired());
+        assertEquals(7L, JsonValue.newDecimal(new BigDecimal("7.000")).asLongRequired());
+
+        // the message expected -> the accessor
+        final Map<String, Executable> accessors = new LinkedHashMap<>();
+        accessors.put("Required integer member 'half' is a fraction", () -> object.getIntegerRequired("half"));
+        accessors.put("Required long member 'tiny' is a fraction", () -> object.getLongRequired("tiny"));
+        accessors.put("Required integer member 'int+1' is out of range", () -> object.getIntegerRequired("int+1"));
+        accessors.put("Required integer member 'max' is out of range", () -> object.getIntegerRequired("max"));
+        accessors.put("Required long member 'long+1' is out of range", () -> object.getLongRequired("long+1"));
+        accessors.put("Required long member 'huge' is out of range", () -> object.getLongRequired("huge"));
+        accessors.put("Required integer item 0 is a fraction", () -> array.getIntegerRequired(0));
+        accessors.put("Required long is a fraction", JsonValue.newDouble(0.5d)::asLongRequired);
+        accessors.put("Required integer is out of range",
+                JsonValue.newDouble(Double.POSITIVE_INFINITY)::asIntegerRequired);
+        accessors.put("Required long is out of range", JsonValue.newDouble(Double.NaN)::asLongRequired);
+
+        for (final Map.Entry<String, Executable> accessor : accessors.entrySet()) {
+            final JsonValueException notWhole =
+                    assertThrows(JsonValueException.class, accessor.getValue(), accessor.getKey());
+            assertEquals(accessor.getKey(), notWhole.getMessage());
+        }
+    }
+
+    /**
      * An item past either end is read by a getter which isn't required as null, as a member which isn't there is.
      */
     @Test

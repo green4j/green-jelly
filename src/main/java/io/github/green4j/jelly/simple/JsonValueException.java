@@ -24,7 +24,8 @@
 package io.github.green4j.jelly.simple;
 
 /**
- * A value which is required is missed, or is not of the type asked for: thrown by every {@code ...Required}
+ * A value which is required is missed, or is not of the type asked for, an integer or a long which isn't
+ * a whole number within the range of its type included: thrown by every {@code ...Required}
  * method of {@link JsonValue}, {@link JsonObject} and {@link JsonArray}. It says that the document is not what
  * the code reading it expects, so a server reading a request can answer the client with it, as a bad request,
  * rather than as an error of its own.

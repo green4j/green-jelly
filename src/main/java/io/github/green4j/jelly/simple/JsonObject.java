@@ -97,7 +97,7 @@ public class JsonObject {
     }
 
     public int getIntegerRequired(final String member) {
-        return required(member, Number.class, "integer").asInteger();
+        return (int) requiredWhole(member, "integer", Integer.MIN_VALUE, Integer.MAX_VALUE);
     }
 
     public void putLong(final String member, final long value) {
@@ -113,7 +113,7 @@ public class JsonObject {
     }
 
     public long getLongRequired(final String member) {
-        return required(member, Number.class, "long").asLong();
+        return requiredWhole(member, "long", Long.MIN_VALUE, Long.MAX_VALUE);
     }
 
     public void putDouble(final String member, final double value) {
@@ -194,6 +194,15 @@ public class JsonObject {
             throw new JsonValueException("Required " + typeName + " member '" + member + "' is " + jsonValue.kind());
         }
         return jsonValue;
+    }
+
+    private long requiredWhole(final String member, final String typeName, final long min, final long max) {
+        final JsonValue jsonValue = present(member, typeName);
+        final String notWhole = jsonValue.notWhole(min, max);
+        if (notWhole != null) {
+            throw new JsonValueException("Required " + typeName + " member '" + member + "' is " + notWhole);
+        }
+        return jsonValue.asLong();
     }
 
     private JsonValue present(final String member, final String typeName) {
