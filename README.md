@@ -4,12 +4,12 @@
 
 GC-free (green) JSON parser/generator library for Java which isn't an object mapper, but aims to be:
 
-* **one pass for UTF-8 and JSON**: JSON received as UTF-8 bytes is decoded and parsed in a single pass, right from a `byte[]` or a heap or direct `ByteBuffer`, with no copying of the data and no intermediate buffer of chars; only the bytes of string values are decoded (see [Utf8JsonParser](#utf8jsonparser))
 * **minimal**: MIT licensed with no dependencies
 * **reactive styled**: the parser can parse a JSON document part by part (e.g. if you have received the part from a block device), even byte by byte; you don't need to iterate over all the tokens with a verbose `if` or `switch`, just handle the callback you are interested in
 * **lightweight**: the code never recurses or allocates more memory than it needs; the Flyweight pattern can be used to wrap a receive/send buffer to prevent memory copying
 * **fast**: high performance, more than comparable with other state-of-the-art parsers like Gson and Jackson (see [Performance](#performance)). No additional GC pauses are introduced, since the code doesn't allocate new memory in its main/critical path
 * **IO buffering oriented**: the parser can be fed with several parts of one single JSON document, even byte by byte, so it's easy to use it with buffered reads
+* **one pass for UTF-8 and JSON**: JSON received as UTF-8 bytes is decoded and parsed in a single pass, right from a `byte[]` or a heap or direct `ByteBuffer`, with no copying of the data and no intermediate buffer of chars; only the bytes of string values are decoded (see [Utf8JsonParser](#utf8jsonparser))
 * **robust**: built according to [Ecma-404](https://www.ecma-international.org/publications/standards/Ecma-404.htm) with some extensions for the number values (see [Numbers](#numbers))
 
 ## Binaries
