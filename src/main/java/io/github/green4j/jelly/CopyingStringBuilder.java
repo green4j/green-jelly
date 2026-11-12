@@ -868,7 +868,7 @@ public final class CopyingStringBuilder implements JsonStringBuilder, JsonUtf8St
 
     private void makeSureRoomSize(final int roomSize) {
         if (buffer.length - length < roomSize) {
-            buffer = Arrays.copyOf(buffer, Math.max(length + roomSize, buffer.length << 1));
+            buffer = Arrays.copyOf(buffer, Capacity.next(buffer.length, (long) length + roomSize));
         }
     }
 }

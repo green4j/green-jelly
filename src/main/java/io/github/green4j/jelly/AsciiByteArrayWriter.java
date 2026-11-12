@@ -25,7 +25,7 @@ package io.github.green4j.jelly;
 
 import java.nio.charset.StandardCharsets;
 
-public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWriter {
+public class AsciiByteArrayWriter implements ClearableByteArrayBufferingWriter {
     private final Frame frame = new Frame() {
         @Override
         public void setCharAt(final int index, final char c) {
@@ -75,11 +75,11 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
         set(array, start);
     }
 
-    public void set(final byte[] array) {
+    public final void set(final byte[] array) {
         set(array, 0);
     }
 
-    public void set(final byte[] array, final int start) {
+    public final void set(final byte[] array, final int start) {
         assert array.length > start;
 
         this.array = array;
@@ -168,19 +168,7 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
 
     @Override
     public void append(final char[] data, final int start, final int len) {
-        makeSureRoomSize(len);
-        final byte[] bytes = array;
-        final int to = this.start + length;
-        int plain = 0;
-        while (plain < len) {
-            final char c = data[start + plain];
-            if (c >= 0x80) {
-                break;
-            }
-            bytes[to + plain] = (byte) c;
-            plain++;
-        }
-        length += plain;
+        final int plain = appendPlain(data, start, len);
         for (int i = plain; i < len; i++) {
             append(data[start + i]);
         }
@@ -189,7 +177,9 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
     // A String has a call site of its own: unlike CharSequence.charAt(), which is a real
     // virtual call in a process using several CharSequences, String.charAt() is always inlined.
     private int appendPlain(final String data, final int start, final int len) {
-        makeSureRoomSize(len);
+        if (array.length - (this.start + length) < len) {
+            return appendPlainInParts(data, start, len);
+        }
         final byte[] bytes = array;
         final int to = this.start + length;
         int plain = 0;
@@ -206,7 +196,9 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
     }
 
     private int appendPlain(final CharSequence data, final int start, final int len) {
-        makeSureRoomSize(len);
+        if (array.length - (this.start + length) < len) {
+            return appendPlainInParts(data, start, len);
+        }
         final byte[] bytes = array;
         final int to = this.start + length;
         int plain = 0;
@@ -219,6 +211,55 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
             plain++;
         }
         length += plain;
+        return plain;
+    }
+
+    private int appendPlain(final char[] data, final int start, final int len) {
+        if (array.length - (this.start + length) < len) {
+            return appendPlainInParts(data, start, len);
+        }
+        final byte[] bytes = array;
+        final int to = this.start + length;
+        int plain = 0;
+        while (plain < len) {
+            final char c = data[start + plain];
+            if (c >= 0x80) {
+                break;
+            }
+            bytes[to + plain] = (byte) c;
+            plain++;
+        }
+        length += plain;
+        return plain;
+    }
+
+    // The chars which don't fit the room left are written in parts, each of them fitting the room there is
+    // (see makeRoomUpTo()), so that a spilling writer doesn't grow for them.
+    private int appendPlainInParts(final CharSequence data, final int start, final int len) {
+        int plain = 0;
+        while (plain < len) {
+            final int part = makeRoomUpTo(len - plain);
+            final int written = data instanceof String
+                    ? appendPlain((String) data, start + plain, part)
+                    : appendPlain(data, start + plain, part);
+            plain += written;
+            if (written < part) {
+                break;
+            }
+        }
+        return plain;
+    }
+
+    private int appendPlainInParts(final char[] data, final int start, final int len) {
+        int plain = 0;
+        while (plain < len) {
+            final int part = makeRoomUpTo(len - plain);
+            final int written = appendPlain(data, start + plain, part);
+            plain += written;
+            if (written < part) {
+                break;
+            }
+        }
         return plain;
     }
 
@@ -236,15 +277,53 @@ public final class AsciiByteArrayWriter implements ClearableByteArrayBufferingWr
         length += 4;
     }
 
+    /**
+     * Called when the array has no room for the next bytes, before it grows. An override may take what has been
+     * written - {@link #array()} from {@link #start()}, {@link #length()} bytes - elsewhere and {@link #clear()}
+     * the writer, returning true: the writing then goes on in the same array. Strings and numbers are written in
+     * parts as long as the room there is, so the array grows only if a single char or a frame from
+     * {@link #append(int)} needs more than it holds. A frame is filled before anything else is appended, so it is
+     * never taken half-written.
+     * <p>
+     * It is never called while nothing has been written. If it returns true, but there is still no room, e.g.
+     * since the writer hasn't been cleared, the array grows. It must not append to this writer.
+     *
+     * @param roomSize the bytes the next write needs; for a string or a number written in parts, all the rest of
+     *                 it, which may be more than the array holds
+     * @return true if the bytes written have been taken and the writer cleared; false to grow the array
+     */
+    protected boolean spill(final int roomSize) {
+        return false;
+    }
+
     private void makeSureRoomSize(final int roomSize) {
-        final int delta = array.length - (start + length + roomSize);
-        if (delta < 0) {
-            final int newSize = Math.max(roomSize, array.length - start) << 1;
-            final byte[] newArray = new byte[newSize];
-            System.arraycopy(array, start, newArray, 0, length);
-            array = newArray;
-            start = 0;
+        if (array.length - (start + length + roomSize) >= 0
+                || (length > 0 && spill(roomSize) && array.length - (start + length + roomSize) >= 0)) {
+            return;
         }
+        grow(roomSize);
+    }
+
+    // The room for the next part of a string or a number: what is left in the array, or in it after a spill,
+    // which is at least one and at most wanted; or wanted, once the array has grown.
+    private int makeRoomUpTo(final int wanted) {
+        int room = array.length - (start + length);
+        if (room <= 0 && length > 0 && spill(wanted)) {
+            room = array.length - (start + length);
+        }
+        if (room > 0) {
+            return Math.min(room, wanted);
+        }
+        grow(wanted);
+        return wanted;
+    }
+
+    private void grow(final int roomSize) {
+        final int newSize = Capacity.next(array.length - start, (long) length + roomSize);
+        final byte[] newArray = new byte[newSize];
+        System.arraycopy(array, start, newArray, 0, length);
+        array = newArray;
+        start = 0;
     }
 
     @Override
