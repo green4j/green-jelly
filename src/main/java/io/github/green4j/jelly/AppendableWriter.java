@@ -166,7 +166,7 @@ public final class AppendableWriter<T extends Appendable> implements BufferingWr
     private void makeSureFrameSize(final int roomSize) {
         final int delta = frameArray.length - roomSize;
         if (delta < 0) {
-            final int newSize = Math.max(roomSize, frameArray.length) << 1;
+            final int newSize = Capacity.next(frameArray.length, roomSize);
             final char[] newArray = new char[newSize];
             frameArray = newArray;
         }

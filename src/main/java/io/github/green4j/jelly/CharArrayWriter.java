@@ -145,7 +145,10 @@ public class CharArrayWriter implements
     public void append(final CharSequence data, final int start, final int len) {
         assert array != null;
 
-        makeSureRoomSize(len);
+        if (array.length - (this.start + length) < len) {
+            appendInParts(data, start, len);
+            return;
+        }
         final char[] chars = array;
         final int startIndex = this.start + length;
         if (data instanceof String) {
@@ -164,13 +167,36 @@ public class CharArrayWriter implements
     public void append(final char[] data, final int start, final int len) {
         assert array != null;
 
-        makeSureRoomSize(len);
+        if (array.length - (this.start + length) < len) {
+            appendInParts(data, start, len);
+            return;
+        }
         final char[] chars = array;
         final int startIndex = this.start + length;
         for (int i = 0; i < len; i++) { // a number mostly, so too short for System.arraycopy() to pay off
             chars[startIndex + i] = data[start + i];
         }
         length += len;
+    }
+
+    // The chars which don't fit the room left are written in parts, each of them fitting the room there is
+    // (see makeRoomUpTo()), so that a spilling writer doesn't grow for them.
+    private void appendInParts(final CharSequence data, final int start, final int len) {
+        int done = 0;
+        while (done < len) {
+            final int part = makeRoomUpTo(len - done);
+            append(data, start + done, part);
+            done += part;
+        }
+    }
+
+    private void appendInParts(final char[] data, final int start, final int len) {
+        int done = 0;
+        while (done < len) {
+            final int part = makeRoomUpTo(len - done);
+            append(data, start + done, part);
+            done += part;
+        }
     }
 
     @Override
@@ -187,15 +213,52 @@ public class CharArrayWriter implements
         length += 4;
     }
 
+    /**
+     * Called when the array has no room for the next chars, before it grows. An override may take what has been
+     * written - {@link #array()} from {@link #start()}, {@link #length()} chars - elsewhere and {@link #clear()}
+     * the writer, returning true: the writing then goes on in the same array. Strings and numbers are written in
+     * parts as long as the room there is, so the array grows only if a frame from {@link #append(int)} needs more
+     * than it holds. A frame is filled before anything else is appended, so it is never taken half-written.
+     * <p>
+     * It is never called while nothing has been written. If it returns true, but there is still no room, e.g.
+     * since the writer hasn't been cleared, the array grows. It must not append to this writer.
+     *
+     * @param roomSize the chars the next write needs; for a string or a number written in parts, all the rest of
+     *                 it, which may be more than the array holds
+     * @return true if the chars written have been taken and the writer cleared; false to grow the array
+     */
+    protected boolean spill(final int roomSize) {
+        return false;
+    }
+
     private void makeSureRoomSize(final int roomSize) {
-        final int delta = array.length - (start + length + roomSize);
-        if (delta < 0) {
-            final int newSize = Math.max(roomSize, array.length - start) << 1;
-            final char[] newArray = new char[newSize];
-            System.arraycopy(array, start, newArray, 0, length);
-            array = newArray;
-            start = 0;
+        if (array.length - (start + length + roomSize) >= 0
+                || (length > 0 && spill(roomSize) && array.length - (start + length + roomSize) >= 0)) {
+            return;
         }
+        grow(roomSize);
+    }
+
+    // The room for the next part of a string or a number: what is left in the array, or in it after a spill,
+    // which is at least one and at most wanted; or wanted, once the array has grown.
+    private int makeRoomUpTo(final int wanted) {
+        int room = array.length - (start + length);
+        if (room <= 0 && length > 0 && spill(wanted)) {
+            room = array.length - (start + length);
+        }
+        if (room > 0) {
+            return Math.min(room, wanted);
+        }
+        grow(wanted);
+        return wanted;
+    }
+
+    private void grow(final int roomSize) {
+        final int newSize = Capacity.next(array.length - start, (long) length + roomSize);
+        final char[] newArray = new char[newSize];
+        System.arraycopy(array, start, newArray, 0, length);
+        array = newArray;
+        start = 0;
     }
 
     @Override

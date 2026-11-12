@@ -289,6 +289,36 @@ There are a few specific classes to support JSON generation in different encodin
 | `io.github.green4j.jelly.CharArrayWriter`      | Char array. Can be used as is or converted later to any other encoding              |
 
 Each of the classes has its own internal mutable buffer which can be passed to IO routines after the JSON is generated.
+The buffer grows as the document needs: it doubles while it is under 16 MiB, then grows by half of itself.
+
+#### Spilling
+
+A document doesn't have to fit the buffer, though. Each of the classes can hand over what has been written while
+the JSON is still being generated: override `spill`, which is called when the buffer has no room for the next
+bytes (or chars), before it grows. The override takes `array()` from `start()`, `length()` bytes elsewhere, calls
+`clear()` and returns `true`; the generation then goes on in the same buffer. Strings and numbers are written in
+parts as long as the room there is, so a document of any size goes through a buffer of a fixed size:
+```java
+final OutputStream out = ...; // e.g. a socket
+final Utf8ByteArrayWriter writer = new Utf8ByteArrayWriter(64 * 1024) {
+    @Override
+    protected boolean spill(final int roomSize) {
+        try {
+            out.write(array(), start(), length());
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        clear();
+        return true;
+    }
+};
+final JsonGenerator generator = new JsonGenerator(writer, false);
+// ... generate the document
+generator.eoj();
+out.write(writer.array(), writer.start(), writer.length()); // the rest of it
+```
+`spill` is never called while nothing has been written, and it must not append to the writer itself.
+The buffer grows only if a single char (6 bytes at most) or a frame taken with `append(int)` needs more than it holds.
 
 ## Performance
 
@@ -317,9 +347,9 @@ Comparison with Jackson 2.21.6 and Gson 2.13.1, a median of 3 forks:
 
 | Document | Parser: green-jelly | Jackson | Gson | Generator: green-jelly | Jackson | Gson |
 |----------|--------------------:|--------:|-----:|-----------------------:|--------:|-----:|
-| NUMBERS  | 4985                | 11060   | 12717 | 4392                  | 4760    | 17775 |
-| DECIMALS | 7387                | 11514   | 14514 | 5043                  | 8409    | 17702 |
-| STRINGS  | 5851                | 9807    | 9709  | 6311                  | 6420    | 13356 |
+| NUMBERS  | 4985                | 11060   | 12717 | 4234                  | 4567    | 17547 |
+| DECIMALS | 7387                | 11514   | 14514 | 4929                  | 8092    | 17681 |
+| STRINGS  | 5851                | 9807    | 9709  | 6294                  | 6213    | 12793 |
 
 The parser of green-jelly unescapes the strings with `CopyingStringBuilder`, Jackson gives the chars of a string from its buffer
 and Gson creates a `String`. A decimal is given by green-jelly as a mantissa and an exponent, while Jackson and Gson parse
